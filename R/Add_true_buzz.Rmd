@@ -13,7 +13,7 @@ options(digits.secs = 3)
 
 # get buzz clip times
 ```{r}
-buzz_clips <- list.files("C:/Users/Edward/Dropbox/VivesiAudio/BuzzCheck/Mviv17/Mviv17_33/Buzz")
+buzz_clips <- list.files("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_33/Buzz")
 split_time <- strsplit(buzz_clips, split = "_")
 buzz_times <- data.frame(file = buzz_clips,
   start_clip = ymd_hms("2000-01-01 12:00:00.001"), 
@@ -30,13 +30,13 @@ for(i in 1:length(split_time)){
 
 # write buzz clip times
 ```{r}
-# write.csv(buzz_times, file = "../../../Dropbox/VivesiACC/data/truebuzz/Mviv17_33_truebuzz.csv")
+write.csv(buzz_times, file = "E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_33/truebuzz/Mviv17_33_truebuzz.csv")
 ```
 
 # manually add true buzz offset times
 # reload buzz times with true buzzes added
 ```{r}
-buzz_times <- read.csv("../../../Dropbox/VivesiACC/data/truebuzz/Mviv17_33_truebuzz_offset.csv")
+buzz_times <- read.csv("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_33/truebuzz/Mviv17_33_truebuzz_offset.csv")
 buzz_times$start_clip <- ymd_hms(buzz_times$start_clip)
 
 buzz_times$true_buzz <- buzz_times$start_clip + buzz_times$offset + buzz_times$segment*0.5
@@ -46,7 +46,7 @@ buzz_times$true_buzz <- buzz_times$start_clip + buzz_times$offset + buzz_times$s
 # load DDMT data
 ```{r}
 
-Metrics <- read.csv("../../../Dropbox/VivesiACC/data/metrics/Mviv17_33_metrics.csv")
+Metrics <- read.csv("E:/Myotis_vivesi/DDMT/Mviv17_33_metrics.csv")
 str(Metrics)
 Metrics$datetime <- ymd_hms(Metrics$datetime)+7*3600
 
@@ -82,7 +82,7 @@ for(i in 1:length(na.omit(buzz_times$true_buzz))){
 
 How does the original audio and acc data overlap?
 ```{r}
-bin <- list.files("G:/GPS_data/20170618/Mviv17_33_ST/binary")
+bin <- list.files("E:/Myotis_vivesi/data/Tagging_17_18/2017/Mviv17_33_ST")
 acc <- data.frame(file = bin[grepl(bin,pattern = "A17*")], 
                   start = ymd_hms("2000-01-01 12:00:00.001"),
                   end = ymd_hms("2000-01-01 12:00:00.001"))
