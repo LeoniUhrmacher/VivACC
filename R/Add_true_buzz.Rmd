@@ -36,7 +36,7 @@ write.csv(buzz_times, file = "E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_33/trueb
 # manually add true buzz offset times
 # reload buzz times with true buzzes added
 ```{r}
-buzz_times <- read.csv("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_33/truebuzz/Mviv17_33_truebuzz_offset.csv")
+buzz_times <- read.csv("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_33/truebuzz/Mviv17_33_truebuzz_offset.csv", sep = ";")
 buzz_times$start_clip <- ymd_hms(buzz_times$start_clip)
 
 buzz_times$true_buzz <- buzz_times$start_clip + buzz_times$offset + buzz_times$segment*0.5
@@ -59,14 +59,14 @@ Metrics$true_buzz <- 0
 i = 6
 for(i in 1:length(na.omit(buzz_times$true_buzz))){
   buzz <- 
-    which.min(abs(Metrics$datetime - (buzz_times$true_buzz[i])))
+    which.min(abs(Metrics$datetime - (buzz_times$true_buzz[i]))) # why do we subtract buzz_times?
   true_start <- 
-    which.min(abs(Metrics$datetime - (buzz_times$true_buzz[i] - 0.25)))
+    which.min(abs(Metrics$datetime - (buzz_times$true_buzz[i] - 0.25))) # can we just say buzz -0.25?
   true_end <- 
     which.min(abs(Metrics$datetime - (buzz_times$true_buzz[i] + 0.25)))
   Metrics$true_buzz[true_start:true_end] <- 1
   
-  buff <- 200
+  buff <- 200 # what does this do? include 200 events/rows before and after buzz?
   with(Metrics[(buzz-buff):(buzz+buff),], plot(datetime, VeDBA.smoothed, cex = 0.5, pch = 16, 
                                              type = "o", col = call+1,
                                              ylim = c(-5, #max(VeDBA.smoothed))
