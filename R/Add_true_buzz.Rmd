@@ -56,7 +56,7 @@ Metrics$datetime <- ymd_hms(Metrics$datetime)+7*3600
 ```{r}
 Metrics$true_buzz <- 0
 # summary(Metrics)
-i = 6
+i = 1
 for(i in 1:length(na.omit(buzz_times$true_buzz))){
   buzz <- 
     which.min(abs(Metrics$datetime - (buzz_times$true_buzz[i]))) # why do we subtract buzz_times?
