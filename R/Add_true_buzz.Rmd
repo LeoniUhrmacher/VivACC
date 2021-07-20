@@ -55,16 +55,23 @@ Metrics$datetime <- ymd_hms(Metrics$datetime)+7*3600
 # add true_buzzes
 ```{r}
 Metrics$true_buzz <- 0
+
+Metrics$buzz_duration <- 0
+
 # summary(Metrics)
 i = 1
-for(i in 1:length(na.omit(buzz_times$true_buzz))){
+
+buzz_idx <-  which(!is.na(buzz_times$true_buzz))
+
+for(i in buzz_idx){
   buzz <- 
-    which.min(abs(Metrics$datetime - (buzz_times$true_buzz[i]))) # why do we subtract buzz_times?
+    which.min(abs(Metrics$datetime - (buzz_times$true_buzz[i]))) 
   true_start <- 
-    which.min(abs(Metrics$datetime - (buzz_times$true_buzz[i] - 0.25))) # can we just say buzz -0.25?
+    which.min(abs(Metrics$datetime - (buzz_times$true_buzz[i] - 0.25))) 
   true_end <- 
     which.min(abs(Metrics$datetime - (buzz_times$true_buzz[i] + 0.25)))
   Metrics$true_buzz[true_start:true_end] <- 1
+  Metrics$buzz_duration[true_start:true_end] <- length(true_start:true_end)
   
   buff <- 200 # what does this do? include 200 events/rows before and after buzz?
   with(Metrics[(buzz-buff):(buzz+buff),], plot(datetime, VeDBA.smoothed, cex = 0.5, pch = 16, 
