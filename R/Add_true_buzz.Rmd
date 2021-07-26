@@ -30,7 +30,12 @@ for(i in 1:length(split_time)){
 
 # write buzz clip times
 ```{r}
-write.csv(buzz_times, file = "E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_33/truebuzz/Mviv17_33_truebuzz.csv")
+write.csv(buzz_times, file = "E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_33/truebuzz/Mviv17_33_truebuzz.csv", row.names = FALSE)
+
+buzz_times <- read.csv("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_33/truebuzz/Mviv17_33_truebuzz.csv")
+buzz_times$offset <- 0
+
+write.csv(buzz_times, file = "E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_33/truebuzz/Mviv17_33_truebuzz_offset.csv", row.names = FALSE)
 ```
 
 # manually add true buzz offset times
