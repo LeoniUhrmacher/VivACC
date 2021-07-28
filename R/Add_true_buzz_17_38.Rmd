@@ -41,19 +41,17 @@ for(i in 1045:length(split_time)){
 
 # write buzz clip times
 ```{r}
-dir.create("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_38/truebuzz")
+#dir.create("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_38/truebuzz")
 
 write.csv(buzz_times, file = "E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_38/truebuzz/Mviv17_38_truebuzz.csv", row.names = FALSE)
 
-#buzz_times <- read.csv("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_38/truebuzz/Mviv17_38_truebuzz.csv")
-#buzz_times$start_clip <- ymd_hms(buzz_times$start_clip)
 buzz_times$offset <- 0
 buzz_times$long_buzz_end <- 0
 
 write.csv(buzz_times, file = "E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_38/truebuzz/Mviv17_38_truebuzz_offset.csv", row.names = FALSE)
 ```
 
-# manually add true buzz offset times
+# manually add true buzz offset times and long_buzz_end
 # reload buzz times with true buzzes added
 ```{r}
 buzz_times <- read.csv("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_38/truebuzz/Mviv17_38_truebuzz_offset.csv", sep = ";")
