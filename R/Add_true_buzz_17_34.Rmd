@@ -1,0 +1,121 @@
+---
+title: "Add true buzz"
+output: html_document
+---
+
+
+```{r load libraries}
+library(pacman)
+pacman::p_load(dplyr, tidyr, lubridate, ggplot2)
+options(digits.secs = 3)
+```
+
+
+# get buzz clip times
+```{r}
+buzz_clips <- list.files("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_34/Buzz")
+split_time <- strsplit(buzz_clips, split = "_")
+buzz_times <- data.frame(file = buzz_clips,
+  start_clip = ymd_hms("2000-01-01 12:00:00.001"), 
+                                          segment = NA)
+
+#Mviv17_33_U17_06_18_03_46_26.599_18U-U17_06_18_03_46_31.603_18U.wav_8
+#Mviv17_34_U17_06_19_03_39_36.482_10U-U17_06_19_03_39_39.175_10U.wav_1
+
+for(i in 1:length(split_time)){
+  buzz_times$start_clip[i] <- ymd_hms(paste0("2017-", split_time[[i]][4],"-", split_time[[i]][5], " ",
+                               split_time[[i]][6],":",split_time[[i]][7], ":", 
+                               split_time[[i]][8]))
+  buzz_times$segment[i] <- as.numeric(substr(split_time[[i]][16], 1, nchar(split_time[[i]][16])-4))  
+}
+
+```
+
+# write buzz clip times
+```{r}
+write.csv(buzz_times, file = "E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_34/truebuzz/Mviv17_34_truebuzz.csv", row.names = FALSE)
+
+buzz_times <- read.csv("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_34/truebuzz/Mviv17_34_truebuzz.csv")
+buzz_times$start_clip <- ymd_hms(buzz_times$start_clip)
+buzz_times$offset <- 0
+
+offset <- read.csv("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_34/truebuzz/Mviv17_34_truebuzz_offset.csv", sep = ";")
+offset$loud_buzz_end <- 0
+
+write.csv(offset, file = "E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_34/truebuzz/Mviv17_34_truebuzz_offset.csv", row.names = FALSE)
+```
+
+# manually add true buzz offset times
+# reload buzz times with true buzzes added
+```{r}
+buzz_times <- read.csv("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_34/truebuzz/Mviv17_34_truebuzz_offset.csv", sep = ";")
+buzz_times$start_clip <- ymd_hms(buzz_times$start_clip)
+
+buzz_times$true_buzz <- buzz_times$start_clip + buzz_times$offset + buzz_times$segment*0.5
+
+```
+
+# load DDMT data
+```{r}
+
+Metrics <- read.csv("E:/Myotis_vivesi/DDMT/Mviv17_34_metrics.csv")
+str(Metrics)
+Metrics$datetime <- ymd_hms(Metrics$datetime)+7*3600
+
+```
+
+# add true_buzzes
+```{r}
+Metrics$true_buzz <- 0
+
+Metrics$buzz_duration <- 0
+
+# summary(Metrics)
+i = 1
+
+buzz_idx <-  which(!is.na(buzz_times$true_buzz))
+
+for(i in buzz_idx){
+  buzz <- 
+    which.min(abs(Metrics$datetime - (buzz_times$true_buzz[i]))) 
+  true_start <- 
+    which.min(abs(Metrics$datetime - (buzz_times$true_buzz[i] - 0.25))) 
+  true_end <- 
+    which.min(abs(Metrics$datetime - (buzz_times$true_buzz[i] + 0.25)))
+  Metrics$true_buzz[true_start:true_end] <- 1
+  Metrics$buzz_duration[true_start:true_end] <- length(true_start:true_end)
+  
+  buff <- 200 # what does this do? include 200 events/rows before and after buzz?
+  with(Metrics[(buzz-buff):(buzz+buff),], plot(datetime, VeDBA.smoothed, cex = 0.5, pch = 16, 
+                                             type = "o", col = call+1,
+                                             ylim = c(-5, #max(VeDBA.smoothed))
+                                                      3)))
+  with(Metrics[(buzz-buff):(buzz+buff),], points(datetime, VeSBA.smoothed, cex = 0.5, 
+                                               type = "o", pch = 16, col = 4))
+  with(Metrics[true_start:true_end,], points(datetime, col = "red", pch = 16,
+                                             y = rep(-3, length(true_start:true_end))))
+  with(Metrics[(buzz-buff):(buzz+buff),], points(datetime, y = rep(-5, buff*2+1), col = buzz*3))
+  abline(v = buzz_times$true_buzz[i], lty = 3)
+}
+```
+
+How does the original audio and acc data overlap?
+```{r}
+bin <- list.files("E:/Myotis_vivesi/data/Tagging_17_18/2017/Mviv17_34_ST")
+acc <- data.frame(file = bin[grepl(bin,pattern = "A17*")], 
+                  start = ymd_hms("2000-01-01 12:00:00.001"),
+                  end = ymd_hms("2000-01-01 12:00:00.001"))
+wav <- data.frame(file = bin[grepl(bin,pattern = "U17*")], 
+                  start = ymd_hms("2000-01-01 12:00:00.001"),
+                  end = ymd_hms("2000-01-01 12:00:00.001"))
+
+
+acc_split <- strsplit(acc$file, split = "_")
+for(i in 1:length(acc)){
+  acc$start[i] <- ymd_hms(paste0("2017-", split_time[[i]][4],"-", split_time[[i]][5], " ",
+                               split_time[[i]][6],":",split_time[[i]][7], ":", 
+                               split_time[[i]][8]))
+}
+
+```
+
