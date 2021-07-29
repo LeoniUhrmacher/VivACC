@@ -40,6 +40,11 @@ buzz_times$offset <- 0
 buzz_times$long_buzz_end <- 0
 
 write.csv(buzz_times, file = "E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_33/truebuzz/Mviv17_33_truebuzz_offset.csv", row.names = FALSE)
+
+offset <- read.csv("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_33/truebuzz/Mviv17_33_truebuzz_offset.csv", sep = ";")
+offset$start_clip <- ymd_hms(offset$start_clip)
+
+write.csv(offset, file = "E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_33/truebuzz/Mviv17_33_truebuzz_offset1.csv", row.names = FALSE)
 ```
 
 # manually add true buzz offset times and long_buzz_end
