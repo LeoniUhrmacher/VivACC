@@ -46,7 +46,7 @@ for(i in 1045:length(split_time)){
 write.csv(buzz_times, file = "E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_38/truebuzz/Mviv17_38_truebuzz.csv", row.names = FALSE)
 
 buzz_times$offset <- 0
-buzz_times$long_buzz_end <- 0
+buzz_times$loud_buzz_end <- 0
 
 write.csv(buzz_times, file = "E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_38/truebuzz/Mviv17_38_truebuzz_offset.csv", row.names = FALSE)
 

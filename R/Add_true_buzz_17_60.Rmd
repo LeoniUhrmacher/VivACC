@@ -39,12 +39,13 @@ for(i in 1:length(split_time)){
 write.csv(buzz_times, file = "E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_60/truebuzz/Mviv17_60_truebuzz.csv", row.names = FALSE)
 
 buzz_times$offset <- 0
-buzz_times$long_buzz_end <- 0
+buzz_times$loud_buzz_end <- 0
 
 write.csv(buzz_times, file = "E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_60/truebuzz/Mviv17_60_truebuzz_offset.csv", row.names = FALSE)
 
+buzz_times <- read.csv("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_60/truebuzz/Mviv17_60_truebuzz.csv")
 offset <- read.csv("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_60/truebuzz/Mviv17_60_truebuzz_offset.csv", sep = ";")
-offset$start_clip <- ymd_hms(offset$start_clip)
+offset$start_clip <- ymd_hms(buzz_times$start_clip)
 
 write.csv(offset, file = "E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_60/truebuzz/Mviv17_60_truebuzz_offset1.csv", row.names = FALSE)
 ```
