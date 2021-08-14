@@ -1,0 +1,56 @@
+---
+title: "Merge_pre&post_DDMT"
+output: html_document
+---
+
+
+```{r load libraries}
+library(pacman)
+pacman::p_load(dplyr, tidyr, lubridate, ggplot2)
+options(digits.secs = 3)
+
+```
+
+#load preDDMT
+``` {r}
+readLines("E:/Myotis_vivesi/DDMT/Mviv17_49_ACC_Call.csv", 3)
+PreDDMT <- read.csv("E:/Myotis_vivesi/DDMT/Mviv17_49_ACC_Call.csv")
+
+str(PreDDMT)
+
+names(PreDDMT)[2] <- "Event"
+names(PreDDMT)
+```
+
+#load postDDMT
+``` {r}
+readLines("E:/Myotis_vivesi/DDMT/Mviv17_49_ACC_Call_outputDDMT.csv", 3)
+PostDDMT <- read.csv("E:/Myotis_vivesi/DDMT/Mviv17_49_ACC_Call_outputDDMT.csv", sep = ";")
+
+str(PostDDMT)
+
+names(PostDDMT)[1] <- "Event"
+names(PostDDMT)[6] <- "Time"
+names(PostDDMT)
+```
+
+#merge pre and postDDMT
+``` {r}
+names(PreDDMT)
+names(PostDDMT)
+ALL_DDMT <- merge(PreDDMT, PostDDMT, by.x = "Event", by.y = "Event")
+names(ALL_DDMT)
+ALL_DDMT_clean <- ALL_DDMT[-c(2:12, 20, 21)]
+names(ALL_DDMT_clean)
+```
+
+#save and check Metrics
+``` {r}
+getwd()
+write.csv(ALL_DDMT_clean, file = "E:/Myotis_vivesi/DDMT/Mviv17_49_metrics.csv", row.names = FALSE)
+
+
+readLines("E:/Myotis_vivesi/DDMT/Mviv17_49_metrics.csv", 4)
+Metrics <- read.csv("E:/Myotis_vivesi/DDMT/Mviv17_49_metrics.csv")
+str(Metrics)
+```
