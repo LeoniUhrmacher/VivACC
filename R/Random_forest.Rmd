@@ -1,0 +1,240 @@
+---
+title: "Random_forest"
+output: html_document
+---
+
+# load libraries
+```{r}
+library(tidyverse)
+library(bcpa)
+library(tidyr)
+library(data.table)
+library(lubridate)
+library(janitor)
+library(ggplot2)
+require(PBSmapping)
+library(vroom)
+op <- options(digits.secs=3)
+```
+
+#read ACC data
+```{r}
+Metrics <- read.csv("E:/Myotis_vivesi/DDMT/Mviv17_60_metrics.csv")
+
+```
+
+#break up ACC into 0.5 s segments
+```{r}
+Met <- Metrics %>% mutate(ints = cut(start_time, breaks = seq(0,40, by = 0.5), 
+                           include.lowest = TRUE, labels = FALSE))
+
+```
+
+#calculate variables to go into RF
+````{r}
+library(chron)
+
+#Usefull functions
+Mov.Av.=function(obj){
+  ma = obj
+  for(i in AccHz:length(obj)){
+    ma[i] = mean(obj[(i-AccHz):(i+AccHz)],na.rm=T)
+  }
+  for(i in 1:AccHz){
+    ma[i] = NA
+  }
+  for(i in (length(obj)-AccHz):length(obj)){
+    ma[i] = NA
+  }
+  ma
+}
+
+Mov.Avf.=function(obj,sd){
+  ma = obj
+  for(i in AccHz:length(obj)){
+    ma[i] = mean(obj[(i-AccHz*sd):(i+AccHz*sd)],na.rm=T)
+  }
+  for(i in 1:AccHz){
+    ma[i] = NA
+  }
+  for(i in (length(obj)-AccHz):length(obj)){
+    ma[i] = NA
+  }
+  ma
+}
+
+Mov.sd.=function(obj){
+  ma = obj
+  for(i in AccHz:length(obj)){
+    ma[i] = sd(obj[(i-AccHz):(i+AccHz)],na.rm=T)
+  }
+  for(i in 1:AccHz){
+    ma[i] = NA
+  }
+  for(i in (length(obj)-AccHz):length(obj)){
+    ma[i] = NA
+  }
+  ma
+}
+
+
+#Static
+ DD$stX = Mov.Av.(DD$Acc_x)
+ DD$stY = Mov.Av.(DD$Acc_y) 
+ DD$stZ = Mov.Av.(DD$Acc_z) 
+
+#Dynamic
+ DD$dyX = DD$Acc_x - DD$stX
+ DD$dyY = DD$Acc_y - DD$stY
+ DD$dyZ = DD$Acc_z - DD$stZ
+ 
+#VeDBA
+ DD$VeDBA = sqrt(DD$dyX^2 + DD$dyY^2 + DD$dyZ^2)
+
+ 
+#VeSBA
+
+ 
+#Pitch and roll 
+
+````
+
+#Build the by-half-second files
+````{r}
+ColDD.sec=c("Date","Time","Timestamp","UTC", "file", "ID","Behav.Lab",
+            apply(
+              expand.grid( c("mean","max","min","range"),colnames(DD)[which(colnames(DD)=="stX"):ncol(DD)] )
+              , 1, paste, collapse="."))
+
+
+#mean, max, min, range of static ACC (stX/Y/Z)
+
+#mean, max, min, range of dynamic ACC (dyX/Y/Z)
+
+#mean, max, min, range of VeDBA
+
+#mean, max, min, range of VeSBA
+
+#create empty data frame
+  DD.sec=as.data.frame(matrix(data=NA, nrow=length(unique(DD$Timestamp)), ncol=length(ColDD.sec), dimnames=list(1:length(unique(DD$Timestamp)),ColDD.sec)))
+  
+#Now fill that df!
+  DD.sec$Date=as.Date(unique(DD$Date),format="%Y-%m-%d")
+  DD.sec$Time <- chron(times=unique(DD$Time))
+  DD.sec$ID <- unique(DD$ID)
+  DD.sec$Timestamp=unique(DD$Timestamp)
+  
+#DD.sec$ID=substr(as.character(DD.ls[D]),2,3)
+  DD.sec$Behav.Lab=tapply(DD$Behaviour,DD$Time,function(x) names(which.max(table(x))))
+  #Select only identified ones for the Learning Sample. Save some time!
+  DD.sec=DD.sec[which(DD.sec$Behav.Lab!=0),]
+  
+  
+#All descriptive stats
+  DDd=DD[which(DD$Time%in%DD.sec$Time),]
+  a=which(colnames(DD.sec)=="mean.stX")
+  for(C in which(ColDD=="stX"):ncol(DD)){
+    
+    DD.sec[,a]=tapply(DDd[,C],DDd$Time,FUN=mean,na.rm=T)
+    a=a+1
+    #DD.sec[,a]=tapply(DDd[,C],DDd$Time,FUN=sd,na.rm=T)
+    #a=a+1
+    DD.sec[,a]=tapply(DDd[,C],DDd$Time,FUN=max,na.rm=T)
+    a=a+1
+    DD.sec[,a]=tapply(DDd[,C],DDd$Time,FUN=min,na.rm=T)
+    a=a+1
+    DD.sec[,a]=DD.sec[,(a-2)]-DD.sec[,(a-1)]
+    a=a+1
+    
+  }
+
+````
+
+#run RF
+````{r}
+#that's how the input file should look like
+catdata <- read.csv("C:/Users/leoni/Documents/Studium/#Studium_Allg/Master Konstanz/VtK Organismal Biology/Cat_data_merged.csv")
+
+library(randomForest)
+
+#Development, Validation
+sample.ind <- sample(2, nrow(data),replace = T,prob = c(0.6,0.4))
+dev <- data[which(sample.ind==1),] #development sample,60% 
+val <- data[which(sample.ind==2),] # validation sample,40%
+
+dev <- na.omit(dev) #leave out NAs
+# check same distributions
+table(dev$behav)/nrow(dev)
+table(val$behav)/nrow(val)
+
+#check for behaviour to exclude
+table(data$behav) #most important!
+table(dev$behav)
+table(val$behav)
+
+#formula
+varNames = paste(colnames(dev)[!colnames(dev) %in% c('X',"Date","Time","Timestamp","ID","behav","UTC","file")], collapse = "+")
+form = as.formula(paste("behav", varNames, sep = " ~ "))  ##full formula with all variables
+
+#forest
+set.seed(221)
+R.Forest <- randomForest(form, dev, ntree=1000, importance = T) #delete not important behaviour, increase number of trees
+
+
+#check how many trees in forest required
+plot(R.Forest)  # sensitivity analysis : less than 100 required                                        
+
+#Check error rates for each behaviour
+colnames(R.Forest$err.rate)#check colnames
+
+# Variable Importance Table
+varImpPlot(R.Forest,sort = T,main="Variable Importance",n.var=25)
+
+#Variables ordered in a list
+var.imp <- data.frame(importance(R.Forest,type=2,scale=F))
+var.imp$MeanDecreaseAccuracy <- data.frame(importance(R.Forest,type=1))$MeanDecreaseAccuracy
+var.imp$MeanDecreaseGiniUnscaled <- data.frame(importance(R.Forest,type=2,scale=F))$MeanDecreaseGini
+var.imp$Variables <- row.names(var.imp)
+var.imp$order <- order(var.imp$MeanDecreaseGini,decreasing = T)
+var.imp[order(var.imp$MeanDecreaseGini,decreasing = T),]
+
+
+#var.imp$Variables=c("stX","stZ","stY","Pitch","Roll","PDBAX", "PDBAY", "PDBAZ", "VeDBA", "VeDBAs",
+                 #   "RatioX", "RatioY", "RatioZ", "PSD1X","Freq1X", "PSD2X", "Freq2X","PSD1Y","Freq1Y","PSD2Y",      
+                 #   "Freq2Y","PSD1Z","Freq1Z", "PSD2Z","Freq2Z")
+
+barplot(var.imp$MeanDecreaseGini[order(var.imp$MeanDecreaseGini,decreasing = T)],
+        names.arg = var.imp$Variables[order(var.imp$MeanDecreaseGini,decreasing = T)],las=2,bty="L",
+        ylab="Mean Gini Decrease")
+
+#test quality
+dev$pred <- predict(R.Forest ,dev)
+val$pred <- predict(R.Forest ,val)
+
+
+ConfusionMatrix.L.samp1=table(val$pred,val$Behav.Lab)
+CM=matrix(data=0,nrow=ncol(ConfusionMatrix.L.samp1),ncol=ncol(ConfusionMatrix.L.samp1),dimnames=list(colnames(ConfusionMatrix.L.samp1),colnames(ConfusionMatrix.L.samp1)))
+for (j in 1:nrow(ConfusionMatrix.L.samp1)) {CM[(rownames(ConfusionMatrix.L.samp1[j,,drop=F])),]=ConfusionMatrix.L.samp1[j,]}   
+
+
+#column=we observed,row=model predicted 
+Recall=diag(CM)/apply(CM,2,sum)
+Precision=diag(CM)/apply(CM,1,sum)
+AEA=sum(diag(CM))/sum(CM)#general accuracy
+#recall <- how much percent the model recognizes from observed data
+#precision <- how much of the recognized data is correct. 
+
+library(dunn.test)
+#Kruskal for diff. in median, supports histograms
+kruskal.test(dev$mean.stX~as.factor(dev$Behav.Lab))
+dunn.test(dev$mean.stX,g=as.factor(dev$Behav.Lab),method="bonferroni")
+#Dunn for correction of sev. tests
+kruskal.test(dev$PSD2X~as.factor(dev$Behav.Lab))
+dunn.test(dev$PSD2X,g=as.factor(dev$Behav.Lab),method="bonferroni")
+
+kruskal.test(dev$PSD1Z~as.factor(dev$Behav.Lab))
+dunn.test(dev$PSD1Z,g=as.factor(dev$Behav.Lab),method="bonferroni")
+
+kruskal.test(dev$mean.VeDBAs~as.factor(dev$Behav.Lab))
+dunn.test(dev$mean.VeDBAs,g=as.factor(dev$Behav.Lab),method="bonferroni")
+````
