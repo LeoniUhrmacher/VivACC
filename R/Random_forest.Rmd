@@ -35,10 +35,10 @@ Met <- Metrics %>% mutate(ints = cut(start_time, breaks = seq(0,40, by = 0.5),
 library(chron)
 
 #Usefull functions
-Mov.Av.=function(obj){
+Mov.Av. = function(obj){
   ma = obj
   for(i in AccHz:length(obj)){
-    ma[i] = mean(obj[(i-AccHz):(i+AccHz)],na.rm=T)
+    ma[i] = mean(obj[(i-AccHz):(i+AccHz)], na.rm = T)
   }
   for(i in 1:AccHz){
     ma[i] = NA
@@ -49,10 +49,10 @@ Mov.Av.=function(obj){
   ma
 }
 
-Mov.Avf.=function(obj,sd){
+Mov.Avf. = function(obj,sd){
   ma = obj
   for(i in AccHz:length(obj)){
-    ma[i] = mean(obj[(i-AccHz*sd):(i+AccHz*sd)],na.rm=T)
+    ma[i] = mean(obj[(i-AccHz*sd):(i+AccHz*sd)], na.rm = T)
   }
   for(i in 1:AccHz){
     ma[i] = NA
@@ -63,10 +63,10 @@ Mov.Avf.=function(obj,sd){
   ma
 }
 
-Mov.sd.=function(obj){
+Mov.sd. = function(obj){
   ma = obj
   for(i in AccHz:length(obj)){
-    ma[i] = sd(obj[(i-AccHz):(i+AccHz)],na.rm=T)
+    ma[i] = sd(obj[(i-AccHz):(i+AccHz)], na.rm = T)
   }
   for(i in 1:AccHz){
     ma[i] = NA
@@ -99,13 +99,8 @@ Mov.sd.=function(obj){
 
 ````
 
-#Build the by-half-second files
+#Build the by-half-second data set and calculate statistics
 ````{r}
-ColDD.sec=c("Date","Time","Timestamp","UTC", "file", "ID","Behav.Lab",
-            apply(
-              expand.grid( c("mean","max","min","range"),colnames(DD)[which(colnames(DD)=="stX"):ncol(DD)] )
-              , 1, paste, collapse="."))
-
 
 #mean, max, min, range of static ACC (stX/Y/Z)
 
@@ -115,126 +110,155 @@ ColDD.sec=c("Date","Time","Timestamp","UTC", "file", "ID","Behav.Lab",
 
 #mean, max, min, range of VeSBA
 
-#create empty data frame
-  DD.sec=as.data.frame(matrix(data=NA, nrow=length(unique(DD$Timestamp)), ncol=length(ColDD.sec), dimnames=list(1:length(unique(DD$Timestamp)),ColDD.sec)))
-  
-#Now fill that df!
-  DD.sec$Date=as.Date(unique(DD$Date),format="%Y-%m-%d")
-  DD.sec$Time <- chron(times=unique(DD$Time))
-  DD.sec$ID <- unique(DD$ID)
-  DD.sec$Timestamp=unique(DD$Timestamp)
-  
-#DD.sec$ID=substr(as.character(DD.ls[D]),2,3)
-  DD.sec$Behav.Lab=tapply(DD$Behaviour,DD$Time,function(x) names(which.max(table(x))))
-  #Select only identified ones for the Learning Sample. Save some time!
-  DD.sec=DD.sec[which(DD.sec$Behav.Lab!=0),]
-  
-  
-#All descriptive stats
-  DDd=DD[which(DD$Time%in%DD.sec$Time),]
-  a=which(colnames(DD.sec)=="mean.stX")
-  for(C in which(ColDD=="stX"):ncol(DD)){
-    
-    DD.sec[,a]=tapply(DDd[,C],DDd$Time,FUN=mean,na.rm=T)
-    a=a+1
-    #DD.sec[,a]=tapply(DDd[,C],DDd$Time,FUN=sd,na.rm=T)
-    #a=a+1
-    DD.sec[,a]=tapply(DDd[,C],DDd$Time,FUN=max,na.rm=T)
-    a=a+1
-    DD.sec[,a]=tapply(DDd[,C],DDd$Time,FUN=min,na.rm=T)
-    a=a+1
-    DD.sec[,a]=DD.sec[,(a-2)]-DD.sec[,(a-1)]
-    a=a+1
-    
-  }
-
 ````
 
-#run RF
+#create training(dev) and test(val) data set
 ````{r}
 #that's how the input file should look like
 catdata <- read.csv("C:/Users/leoni/Documents/Studium/#Studium_Allg/Master Konstanz/VtK Organismal Biology/Cat_data_merged.csv")
 
+#install.packages("randomForest")
 library(randomForest)
 
 #Development, Validation
-sample.ind <- sample(2, nrow(data),replace = T,prob = c(0.6,0.4))
-dev <- data[which(sample.ind==1),] #development sample,60% 
-val <- data[which(sample.ind==2),] # validation sample,40%
+sample.ind <- sample(2, nrow(data), replace = T, prob = c(0.6, 0.4))
+dev <- data[which(sample.ind == 1),] #development sample,60% 
+val <- data[which(sample.ind == 2),] #validation sample,40%
 
 dev <- na.omit(dev) #leave out NAs
 # check same distributions
-table(dev$behav)/nrow(dev)
-table(val$behav)/nrow(val)
+table(dev$behav) / nrow(dev)
+table(val$behav) / nrow(val)
 
 #check for behaviour to exclude
 table(data$behav) #most important!
 table(dev$behav)
 table(val$behav)
+````
 
+#train RF
+````{r}
 #formula
 varNames = paste(colnames(dev)[!colnames(dev) %in% c('X',"Date","Time","Timestamp","ID","behav","UTC","file")], collapse = "+")
-form = as.formula(paste("behav", varNames, sep = " ~ "))  ##full formula with all variables
+form = as.formula(paste("behav", varNames, sep = " ~ "))
+# we want to predict "behav" (response variable) using each of the remaining columns of data = varNames (predictors/ features)
+#formula = behav ~ . (remaining columns after behav)
 
 #forest
-set.seed(221)
-R.Forest <- randomForest(form, dev, ntree=1000, importance = T) #delete not important behaviour, increase number of trees
+set.seed(222)
+R.Forest <- randomForest(formula = form, data = dev, ntree = 1000, importance = T) #delete not important behaviour, increase number of trees
+#formula: formula describing the predictor and response variables
+#data: data frame containing the variables in the model
+#ntree: number of trees to be generated
+#mtry: number of randomly selected features used in the construction of each tree (default value = sqrt(number of features))
+#importance: calculate variable importance
+
+R.Forest                                   
+#lists the call used to build the classifier
+#number of trees
+#variables at each split
+#confusion matrix and OOB estimate of error rate:
+#calculated by counting however many points in the training set were misclassified (2 versicolor and 2 virginica observations = 4) and dividing this number by the total number of observations (4/75 ~ 5.33%)
+#select the combination of ntrees and mtry that produces the smallest value for OOB error rate
+#for more complicated data sets, i.e. when a higher number of features is present, a good idea is to use cross-validation to perform feature selection using the OOB error rate (see rfcv from randomForest for more details)
+````
+
+#tune parameters ntree and mtry
+````{r}
+#check how many trees are required (ntrees)
+plot(R.Forest)  
+# plots number of trees (x) against mean squared error (mse) (y)
+
+#find number of trees that produce lowest mse
+which.min(R.Forest$mse)
 
 
-#check how many trees in forest required
-plot(R.Forest)  # sensitivity analysis : less than 100 required                                        
+#check how many predictor variables should be randomly chosen at each split (mtry)
+#growing 400 trees for 13 times i.e for all 13 predictors
+oob.err = double(13)
+test.err = double(13)
+
+for(mtry in 1:13) {
+  rf = randomForest(form, data = dev, mtry = mtry, ntree = 400) 
+  oob.err[mtry] = rf$mse[400] #Error of all trees fitted; mse = mean squared error
+  
+  pred <- predict(rf, val) #Predictions on Test Set for each Tree
+  test.err[mtry] = with(val, mean((behav - pred)^2)) #Mean Squared Test Error
+}
+
+#Plotting both Test Error and Out of Bag Error
+matplot(1:mtry , cbind(oob.err,test.err), pch = 19 , col = c("red","blue"), type = "b", ylab = "Mean Squared Error", xlab = "Number of Predictors Considered at each Split")
+legend("topright", legend = c("Out of Bag Error","Test Error"), pch = 19, col = c("red","blue"))
+#On the Extreme Right Hand Side of the above plot, we considered all possible 13 predictors at each Split which is only Bagging
+
 
 #Check error rates for each behaviour
-colnames(R.Forest$err.rate)#check colnames
+colnames(R.Forest$err.rate) #check colnames
 
-# Variable Importance Table
-varImpPlot(R.Forest,sort = T,main="Variable Importance",n.var=25)
+
+#use tuneRF() to adjust parameters
+RF_tuned <- tuneRF(
+            x = varNames, #define predictor variables
+            y = dev$behav, #define response variable
+            ntreeTry = 500,
+            mtryStart = 4, 
+            stepFactor = 1.5,
+            improve = 0.01,
+            trace = FALSE #don't show real-time progress
+            )
+#ntreeTry: The number of trees to build.
+#mtryStart: The starting number of predictor variables to consider at each split.
+#stepFactor: The factor to increase by until the out-of-bag estimated error stops improving by a certain amount.
+#improve: The amount that the out-of-bag error needs to improve by to keep increasing the step factor
+
+#creates a plot with the number of predictors (mtry) on x and the oob estimated error on y
+#use number of predictors with lowest oob estimated error
+````
+
+#Variable Importance
+````{r}
+#display the importance of each predictor variable
+varImpPlot(R.Forest, sort = T, main = "Variable Importance", n.var = 25)
+#x: average increase in node purity
+#y: predictor variables
+#MeanDecreaseAccuracy: gives a rough estimate of the loss in prediction performance when that particular variable is omitted from the training set
+#MeanDecreaseGini: GINI is a measure of node impurity. Highest purity means that each node contains only elements of a single class. Assessing the decrease in GINI when that feature is omitted leads to an understanding of how important that feature is to split the data correctly
 
 #Variables ordered in a list
-var.imp <- data.frame(importance(R.Forest,type=2,scale=F))
-var.imp$MeanDecreaseAccuracy <- data.frame(importance(R.Forest,type=1))$MeanDecreaseAccuracy
-var.imp$MeanDecreaseGiniUnscaled <- data.frame(importance(R.Forest,type=2,scale=F))$MeanDecreaseGini
+var.imp <- data.frame(importance(R.Forest, type = 2, scale = F))
+var.imp$MeanDecreaseAccuracy <- data.frame(importance(R.Forest, type = 1))$MeanDecreaseAccuracy
+var.imp$MeanDecreaseGiniUnscaled <- data.frame(importance(R.Forest, type = 2, scale = F))$MeanDecreaseGini
 var.imp$Variables <- row.names(var.imp)
-var.imp$order <- order(var.imp$MeanDecreaseGini,decreasing = T)
-var.imp[order(var.imp$MeanDecreaseGini,decreasing = T),]
+var.imp$order <- order(var.imp$MeanDecreaseGini, decreasing = T)
+var.imp[order(var.imp$MeanDecreaseGini, decreasing = T),]
 
 
-#var.imp$Variables=c("stX","stZ","stY","Pitch","Roll","PDBAX", "PDBAY", "PDBAZ", "VeDBA", "VeDBAs",
-                 #   "RatioX", "RatioY", "RatioZ", "PSD1X","Freq1X", "PSD2X", "Freq2X","PSD1Y","Freq1Y","PSD2Y",      
-                 #   "Freq2Y","PSD1Z","Freq1Z", "PSD2Z","Freq2Z")
+#var.imp$Variables = c("stX","stZ","stY","Pitch","Roll","VeDBA",VeDBAs","VeSBA")
 
-barplot(var.imp$MeanDecreaseGini[order(var.imp$MeanDecreaseGini,decreasing = T)],
-        names.arg = var.imp$Variables[order(var.imp$MeanDecreaseGini,decreasing = T)],las=2,bty="L",
-        ylab="Mean Gini Decrease")
+barplot(var.imp$MeanDecreaseGini[order(var.imp$MeanDecreaseGini, decreasing = T)],
+        names.arg = var.imp$Variables[order(var.imp$MeanDecreaseGini, decreasing = T)], 
+        las = 2, bty = "L", ylab = "Mean Gini Decrease")
+````
 
-#test quality
-dev$pred <- predict(R.Forest ,dev)
-val$pred <- predict(R.Forest ,val)
+#validate how good the model is on the test data (val)
+````{r}
+dev$pred <- predict(R.Forest, dev)
+val$pred <- predict(R.Forest, val)
+
+CM.samp1 = table(val$pred, val$behav)
+
+CM = matrix(data = 0, nrow = ncol(CM.samp1), ncol = ncol(CM.samp1), dimnames = list(colnames(CM.samp1), colnames(CM.samp1)))
+
+for (j in 1:nrow(CM.samp1)){
+  CM[(rownames(CM.samp1[j,,drop = F])),] = CM.samp1[j,]
+  }   
 
 
-ConfusionMatrix.L.samp1=table(val$pred,val$Behav.Lab)
-CM=matrix(data=0,nrow=ncol(ConfusionMatrix.L.samp1),ncol=ncol(ConfusionMatrix.L.samp1),dimnames=list(colnames(ConfusionMatrix.L.samp1),colnames(ConfusionMatrix.L.samp1)))
-for (j in 1:nrow(ConfusionMatrix.L.samp1)) {CM[(rownames(ConfusionMatrix.L.samp1[j,,drop=F])),]=ConfusionMatrix.L.samp1[j,]}   
-
-
-#column=we observed,row=model predicted 
-Recall=diag(CM)/apply(CM,2,sum)
-Precision=diag(CM)/apply(CM,1,sum)
-AEA=sum(diag(CM))/sum(CM)#general accuracy
+#column = we observed, row = model predicted 
+Recall = diag(CM) / apply(CM,2,sum)
+Precision = diag(CM) / apply(CM,1,sum)
+AEA = sum(diag(CM)) / sum(CM) #general accuracy
 #recall <- how much percent the model recognizes from observed data
-#precision <- how much of the recognized data is correct. 
+#precision <- how much of the recognized data is correct
 
-library(dunn.test)
-#Kruskal for diff. in median, supports histograms
-kruskal.test(dev$mean.stX~as.factor(dev$Behav.Lab))
-dunn.test(dev$mean.stX,g=as.factor(dev$Behav.Lab),method="bonferroni")
-#Dunn for correction of sev. tests
-kruskal.test(dev$PSD2X~as.factor(dev$Behav.Lab))
-dunn.test(dev$PSD2X,g=as.factor(dev$Behav.Lab),method="bonferroni")
-
-kruskal.test(dev$PSD1Z~as.factor(dev$Behav.Lab))
-dunn.test(dev$PSD1Z,g=as.factor(dev$Behav.Lab),method="bonferroni")
-
-kruskal.test(dev$mean.VeDBAs~as.factor(dev$Behav.Lab))
-dunn.test(dev$mean.VeDBAs,g=as.factor(dev$Behav.Lab),method="bonferroni")
 ````
