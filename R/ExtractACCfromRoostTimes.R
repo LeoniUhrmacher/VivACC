@@ -34,13 +34,10 @@ roost_times$start <- ymd_hms(sapply(X = roost_files, FUN = get_time)) - 7*3600
 roost_times$end <- roost_times$start + 0.5
 
 # read in acc data
-acc <- fread("E:/Myotis_vivesi/DDMT/Mviv17_60_metrics.csv")
+acc <- fread("E:/Myotis_vivesi/17_60/Mviv17_60_metrics.csv")
 
 # find acc data that matches roost times
 acc$roost_idx <- NA
-
-i = 1789 # it stopped here weirdly, so you might need to manually tell the for loop to start from 
-# 1789:nrow below
 
 # add roost index to acc data frame
 for(i in 1:nrow(roost_times)){
@@ -64,10 +61,6 @@ roost_acc <- acc %>% group_by(roost_idx) %>%
             VeDBAsm = mean(VeDBA.smoothed), VeSBAsm = mean(VeSBA.smoothed))
 roost_acc$behav = "roost" # add behavior
 
-write.csv(acc, "E:/Myotis_vivesi/DDMT/Mviv17_60_ACC_roost_idx.csv", row.names = FALSE)
-write.csv(roost_acc, "E:/Myotis_vivesi/DDMT/Mviv17_60_roost_acc.csv", row.names = FALSE)
+write.csv(roost_acc, "E:/Myotis_vivesi/17_60/Mviv17_60_roost_acc.csv", row.names = FALSE)
 
 # repeat this for each behavior type
-
-# then combine all the files
-final_acc <- rbind(buzz_acc, commute_acc, search_acc, roost_acc)

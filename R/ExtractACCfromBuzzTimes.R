@@ -2,7 +2,7 @@
 
 library(pacman)
 p_load(lubridate, tidyverse, dplyr, timetools, data.table)
-op <- options(digits.secs=3)
+op <- options(digits.secs = 3)
 
 # get buzz times from audio files
 buzz_files <- list.files("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_60/Buzz", 
@@ -33,19 +33,26 @@ get_time(buzz_files[1])
 buzz_times$start <- ymd_hms(sapply(X = buzz_files, FUN = get_time)) - 7*3600
 buzz_times$end <- buzz_times$start + 0.5
 
-# read in acc data
-acc <- fread("E:/Myotis_vivesi/DDMT/Mviv17_60_metrics.csv")
 
-# find acc data that matches buzz times
+# read in acc data
+acc <- fread("E:/Myotis_vivesi/17_60/Mviv17_60_metrics.csv")
+
+#better work with true_buzz  not buzz_times
+true_buzz_end <- read.csv("E:/Myotis_vivesi/17_60/Mviv17_60_true_buzz_end.csv")
+true_buzz_end$buzz_end <- ymd_hms(true_buzz_end$buzz_end)
+
+true_buzz_end$local_buzz_end <- true_buzz_end$buzz_end - 7*3600
+
+
+# add buzz index to acc data frame: for each true_buzz find the matching acc and add an index
 acc$buzz_idx <- NA
 
-i = 1 # it stopped here weirdly, so you might need to manually tell the for loop to start from 
-# 1789:nrow below
+i = 1
 
-# add buzz index to acc data frame
-for(i in 1:nrow(buzz_times)){
-  start <- which.min(abs(buzz_times$start[i] - acc$datetime))
-  end <- which.min(abs(buzz_times$end[i] - acc$datetime))
+for(i in 1:nrow(true_buzz_end)){
+  buzz_end <- which.min(abs(true_buzz_end$local_buzz_end[i] - acc$datetime))
+  start <- which.min(abs((true_buzz_end$local_buzz_end[i] - 0.25) - acc$datetime))
+  end <- which.min(abs((true_buzz_end$local_buzz_end[i] + 0.25) - acc$datetime))
   acc$buzz_idx[start:end] <- i
 }
 
@@ -64,10 +71,6 @@ buzz_acc <- acc %>% group_by(buzz_idx) %>%
             VeDBAsm = mean(VeDBA.smoothed), VeSBAsm = mean(VeSBA.smoothed))
 buzz_acc$behav = "buzz" # add behavior
 
-write.csv(acc, "E:/Myotis_vivesi/DDMT/Mviv17_60_ACC_buzz_idx.csv", row.names = FALSE)
-write.csv(buzz_acc, "E:/Myotis_vivesi/DDMT/Mviv17_60_buzz_acc.csv", row.names = FALSE)
+write.csv(buzz_acc, "E:/Myotis_vivesi/17_60/Mviv17_60_buzz_acc.csv", row.names = FALSE)
 
 # repeat this for each behavior type
-
-# then combine all the 
-final_acc <- rbind(buzz_acc, #commute_acc, #search_acc, #roost_acc)

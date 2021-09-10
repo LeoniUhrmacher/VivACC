@@ -34,13 +34,10 @@ comm_times$start <- ymd_hms(sapply(X = comm_files, FUN = get_time)) - 7*3600
 comm_times$end <- comm_times$start + 0.5
 
 # read in acc data
-acc <- fread("E:/Myotis_vivesi/DDMT/Mviv17_60_metrics.csv")
+acc <- fread("E:/Myotis_vivesi/17_60/Mviv17_60_metrics.csv")
 
 # find acc data that matches commuting times
 acc$comm_idx <- NA
-
-i = 1789 # it stopped here weirdly, so you might need to manually tell the for loop to start from 
-# 1789:nrow below
 
 # add comm index to acc data frame
 for(i in 1:nrow(comm_times)){
@@ -64,10 +61,6 @@ comm_acc <- acc %>% group_by(comm_idx) %>%
             VeDBAsm = mean(VeDBA.smoothed), VeSBAsm = mean(VeSBA.smoothed))
 comm_acc$behav = "comm" # add behavior
 
-write.csv(acc, "E:/Myotis_vivesi/DDMT/Mviv17_60_ACC_comm_idx.csv", row.names = FALSE)
-write.csv(comm_acc, "E:/Myotis_vivesi/DDMT/Mviv17_60_comm_acc.csv", row.names = FALSE)
+write.csv(comm_acc, "E:/Myotis_vivesi/17_60/Mviv17_60_comm_acc.csv", row.names = FALSE)
 
 # repeat this for each behavior type
-
-# then combine all the files
-final_acc <- rbind(buzz_acc, comm_acc, search_acc, roost_acc)
