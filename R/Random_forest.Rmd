@@ -17,17 +17,23 @@ library(vroom)
 op <- options(digits.secs=3)
 ```
 
-#read ACC data
+# read in half second acc with variables and behaviour labels
 ```{r}
-Metrics <- read.csv("E:/Myotis_vivesi/DDMT/Mviv17_60_metrics.csv")
+# combine all behaviour  files
+buzz_acc <- read.csv("E:/Myotis_vivesi/17_60/Mviv17_60_buzz_acc.csv")
+commute_acc <- read.csv("E:/Myotis_vivesi/17_60/Mviv17_60_comm_acc.csv")
+search_acc <- read.csv("E:/Myotis_vivesi/17_60/Mviv17_60_search_acc.csv")
+roost_acc <- read.csv("E:/Myotis_vivesi/17_60/Mviv17_60_roost_acc.csv")
 
-```
+# remove idx colums
+buzz_acc <- buzz_acc[,-1]
+commute_acc <- commute_acc[,-1]
+search_acc <- search_acc[,-1]
+roost_acc <- roost_acc[,-1]
 
-#break up ACC into 0.5 s segments
-```{r}
-Met <- Metrics %>% mutate(ints = cut(start_time, breaks = seq(0,40, by = 0.5), 
-                           include.lowest = TRUE, labels = FALSE))
+final_acc <- rbind(buzz_acc, commute_acc, search_acc, roost_acc)
 
+write.csv(final_acc, "E:/Myotis_vivesi/17_60/Mviv17_60_final.csv", row.names = FALSE)
 ```
 
 #calculate variables to go into RF
