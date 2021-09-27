@@ -12,8 +12,7 @@ options(digits.secs = 3)
 
 #load preDDMT
 ``` {r}
-readLines("E:/Myotis_vivesi/DDMT/Mviv18_06_ACC_Call.csv", 3)
-PreDDMT <- read.csv("E:/Myotis_vivesi/DDMT/Mviv18_06_ACC_Call.csv")
+PreDDMT <- read.csv("E:/Myotis_vivesi/18_06/Mviv18_06_ACC_Call.csv")
 
 str(PreDDMT)
 
@@ -23,13 +22,12 @@ names(PreDDMT)
 
 #load postDDMT
 ``` {r}
-readLines("E:/Myotis_vivesi/DDMT/Mviv18_06_ACC_Call_outputDDMT.csv", 3)
-PostDDMT <- read.csv("E:/Myotis_vivesi/DDMT/Mviv18_06_ACC_Call_outputDDMT.csv", sep = ";")
+PostDDMT <- read.csv("E:/Myotis_vivesi/DDMT/Mviv18_06_ACC_Call_split1.csv", sep = ";")
 
 str(PostDDMT)
 
 names(PostDDMT)[1] <- "Event"
-names(PostDDMT)[6] <- "Time"
+names(PostDDMT)[3] <- "Time"
 names(PostDDMT)
 ```
 
@@ -39,16 +37,26 @@ names(PreDDMT)
 names(PostDDMT)
 ALL_DDMT <- merge(PreDDMT, PostDDMT, by.x = "Event", by.y = "Event")
 names(ALL_DDMT)
-ALL_DDMT_clean <- ALL_DDMT[-c(2:15, 17, 20, 24:25, 33:36)]
+ALL_DDMT_clean <- ALL_DDMT[-c(2:16, 20)]
 names(ALL_DDMT_clean)
+
+names(ALL_DDMT_clean)[7] <- "ACCX"
+names(ALL_DDMT_clean)[8] <- "ACCY"
+names(ALL_DDMT_clean)[9] <- "ACCZ"
+names(ALL_DDMT_clean)[10] <- "stACCX"
+names(ALL_DDMT_clean)[11] <- "stACCY"
+names(ALL_DDMT_clean)[12] <- "stACCZ"
+names(ALL_DDMT_clean)[13] <- "dACCX"
+names(ALL_DDMT_clean)[14] <- "dACCY"
+names(ALL_DDMT_clean)[15] <- "dACCZ"
+names(ALL_DDMT_clean)[18] <- "Pitch"
+names(ALL_DDMT_clean)[19] <- "Roll"
 ```
 
 #save and check Metrics
 ``` {r}
-write.csv(ALL_DDMT_clean, file = "E:/Myotis_vivesi/DDMT/Mviv18_06_metrics.csv", row.names = FALSE)
+write.csv(ALL_DDMT_clean, file = "E:/Myotis_vivesi/18_06/Mviv18_06_metrics.csv", row.names = FALSE)
 
-
-readLines("E:/Myotis_vivesi/DDMT/Mviv18_06_metrics.csv", 4)
-Metrics <- read.csv("E:/Myotis_vivesi/DDMT/Mviv18_06_metrics.csv")
+Metrics <- read.csv("E:/Myotis_vivesi/18_06/Mviv18_06_metrics.csv")
 str(Metrics)
 ```
