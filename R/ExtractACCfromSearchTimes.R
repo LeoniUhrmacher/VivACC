@@ -33,34 +33,69 @@ get_time(search_files[1])
 search_times$start <- ymd_hms(sapply(X = search_files, FUN = get_time)) - 7*3600
 search_times$end <- search_times$start + 0.5
 
-# read in acc data
-acc <- fread("E:/Myotis_vivesi/17_60/Mviv17_60_metrics.csv")
+search_times <- na.omit(search_times)
 
-# find acc data that matches search times
+search_times$start %>% unique %>% length
+
+search_times <- search_times[order(search_times$start),]
+
+# read in acc data
+acc <- read.csv("E:/Myotis_vivesi/17_60/Mviv17_60_metrics.csv")
+
+names(acc)
+acc <- acc[-c(3:7)]
+
+names(acc)[14] <- "Pitch"
+names(acc)[15] <- "Roll"
+
+acc$datetime <- ymd_hms(acc$datetime)
+
+
+# add search index to acc data frame: for each search phase call find the matching acc and add an index
 acc$search_idx <- NA
 
-# add search index to acc data frame
 for(i in 1:nrow(search_times)){
   start <- which.min(abs(search_times$start[i] - acc$datetime))
   end <- which.min(abs(search_times$end[i] - acc$datetime))
   acc$search_idx[start:end] <- i
 }
 
+hist(table(acc$search_idx))
 
-# summarize acc data by the search audio index
+# # summarize acc data by the search audio index
 search_acc <- acc %>% group_by(search_idx) %>% 
-  summarise(ACCX = mean(Acc_x), ACCY = mean(Acc_y), ACCZ = mean(Acc_z),
-            maxACCX = max(Acc_x), maxACCY = max(Acc_y), maxACCZ = max(Acc_z),
-            minACCX = min(Acc_x), minACCY = min(Acc_y), minACCZ = min(Acc_z),
-            ACCXsm = mean(Acc_x.sm), ACCYsm = mean(Acc_y.sm), ACCZsm = mean(Acc_z.sm),
-            maxACCXsm = max(Acc_x.sm), maxACCYsm = max(Acc_y.sm), maxACCZsm = max(Acc_z.sm),
-            minACCXsm = min(Acc_x.sm), minACCYsm = min(Acc_y.sm), minACCZsm = min(Acc_z.sm),
-            VeDBA = mean(VeDBA), VeSBA = mean(VeSBA),
+  summarise(count = n(),
+            accx = mean(ACCX), accy = mean(ACCY), accz = mean(ACCZ),
+            maxX = max(ACCX), maxY = max(ACCY), maxZ = max(ACCZ),
+            minX = min(ACCX), minY = min(ACCY), minZ = min(ACCZ),
+            diffX = diff(range(ACCX)), diffY = diff(range(ACCY)), diffZ = diff(range(ACCZ)), 
+            stx = mean(stACCX), sty = mean(stACCY), stz = mean(stACCZ),
+            maxstX = max(stACCX), maxstY = max(stACCY), maxstZ = max(stACCZ),
+            minstX = min(stACCX), minstY = min(stACCY), minstZ = min(stACCZ),
+            diffstX = diff(range(stACCX)), diffstY = diff(range(stACCY)), diffstZ = diff(range(stACCZ)),
+            dX = mean(dACCX), dY = mean(dACCY), dZ = mean(dACCZ),
+            maxdX = max(dACCX), maxdY = max(dACCY), maxdZ = max(dACCZ),
+            mindX = min(dACCX), mindY = min(dACCY), mindZ = min(dACCZ),
+            diffdX = diff(range(dACCX)), diffdY = diff(range(dACCY)), diffdZ = diff(range(dACCZ)),
+            vedba = mean(VeDBA), vesba = mean(VeSBA),
             maxVeDBA = max(VeDBA), maxVeSBA = max(VeSBA),
             minVeDBA = min(VeDBA), minVeSBA = min(VeSBA),
-            VeDBAsm = mean(VeDBA.smoothed), VeSBAsm = mean(VeSBA.smoothed))
+            diffVeDBA = diff(range(VeDBA)), diffVeSBA = diff(range(VeSBA)),
+            pitch = mean(Pitch), maxPitch = max(Pitch), minPitch = min(Pitch), diffPitch = diff(range(Pitch)),
+            roll = mean(Roll), maxRoll = max(Roll), minRoll = min(Roll), diffRoll = diff(range(roll)))
+
+head(search_acc, 10)
+
 search_acc$behav = "search" # add behavior
 
-write.csv(search_acc, "E:/Myotis_vivesi/17_60/Mviv17_60_search_acc.csv", row.names = FALSE)
+table(search_acc$count)
 
-# repeat this for each behavior type
+# only keep counts with 20 & 21
+
+search_acc_clean <- search_acc[search_acc$count > 19 & search_acc$count < 22, ]
+
+table(search_acc_clean$count)
+
+# should also only keep rows with stACC -1 to 1
+
+write.csv(search_acc_clean, "E:/Myotis_vivesi/17_60/Mviv17_60_search_acc.csv", row.names = FALSE)
