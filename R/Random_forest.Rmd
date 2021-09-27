@@ -1,46 +1,46 @@
 ---
 title: "Random_forest"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 # load libraries
+
 ```{r}
-library(tidyverse)
-library(bcpa)
-library(tidyr)
-library(data.table)
-library(lubridate)
-library(janitor)
-library(ggplot2)
-require(PBSmapping)
-library(vroom)
-op <- options(digits.secs=3)
+library(pacman)
+p_load(lubridate, tidyverse, dplyr, timetools, data.table)
+op <- options(digits.secs = 3)
 ```
 
 # read in half second acc with variables and behaviour labels
+
 ```{r}
 # combine all behaviour  files
 buzz_acc <- read.csv("E:/Myotis_vivesi/17_60/Mviv17_60_buzz_acc.csv")
-commute_acc <- read.csv("E:/Myotis_vivesi/17_60/Mviv17_60_comm_acc.csv")
+comm_acc <- read.csv("E:/Myotis_vivesi/17_60/Mviv17_60_comm_acc.csv")
 search_acc <- read.csv("E:/Myotis_vivesi/17_60/Mviv17_60_search_acc.csv")
 roost_acc <- read.csv("E:/Myotis_vivesi/17_60/Mviv17_60_roost_acc.csv")
 
-# remove idx colums
-buzz_acc <- buzz_acc[,-1]
-commute_acc <- commute_acc[,-1]
-search_acc <- search_acc[,-1]
-roost_acc <- roost_acc[,-1]
+# remove idx & count column
+names(comm_acc)
+buzz_acc <- buzz_acc[-c(1,2)]
+comm_acc <- comm_acc[-c(1,2)]
+search_acc <- search_acc[-c(1,2)]
+roost_acc <- roost_acc[-c(1,2)]
 
-final_acc <- rbind(buzz_acc, commute_acc, search_acc, roost_acc)
+final_acc <- rbind(buzz_acc, comm_acc, search_acc, roost_acc)
 
 write.csv(final_acc, "E:/Myotis_vivesi/17_60/Mviv17_60_final.csv", row.names = FALSE)
+
 ```
 
-#calculate variables to go into RF
-````{r}
+# calculate predictor variables to go into RF
+
+```{r}
 library(chron)
 
-#Usefull functions
+#running mean 
 Mov.Av. = function(obj){
   ma = obj
   for(i in AccHz:length(obj)){
@@ -55,111 +55,680 @@ Mov.Av. = function(obj){
   ma
 }
 
-Mov.Avf. = function(obj,sd){
-  ma = obj
-  for(i in AccHz:length(obj)){
-    ma[i] = mean(obj[(i-AccHz*sd):(i+AccHz*sd)], na.rm = T)
-  }
-  for(i in 1:AccHz){
-    ma[i] = NA
-  }
-  for(i in (length(obj)-AccHz):length(obj)){
-    ma[i] = NA
-  }
-  ma
-}
 
-Mov.sd. = function(obj){
-  ma = obj
-  for(i in AccHz:length(obj)){
-    ma[i] = sd(obj[(i-AccHz):(i+AccHz)], na.rm = T)
-  }
-  for(i in 1:AccHz){
-    ma[i] = NA
-  }
-  for(i in (length(obj)-AccHz):length(obj)){
-    ma[i] = NA
-  }
-  ma
-}
+library(lubridate)
+
+list.files("E:/Myotis_vivesi/17_60")
+
+metrics <- read.csv("E:/Myotis_vivesi/17_60/Mviv17_60_metrics.csv")
+str(metrics)
+
+raw_acc <- read.csv("E:/Myotis_vivesi/17_60/Mviv17_60_ACC_Call.csv")
+# first convert values to physical units (g) according to your settings, you used the lowest dynamic range of +/-2g so you have 16384 digits/g 
+# -> divide acceleration channels by 16384 (2^14) to get G values
+
+acc <- raw_acc[,-c(1, 6:12, 14:16)]
+names(acc)
+names(acc)[1] <- "Event"
+
+acc$ACCX <- raw_acc$ACCX / 16384
+acc$ACCY <- raw_acc$ACCY / 16384
+acc$ACCZ <- raw_acc$ACCZ / 16384
+
+
+options(digits.secs = 0)
+acc$datetime <- ymd_hms(raw_acc$datetime)
+
+AccHz <- median(table(acc$datetime))
 
 
 #Static
- DD$stX = Mov.Av.(DD$Acc_x)
- DD$stY = Mov.Av.(DD$Acc_y) 
- DD$stZ = Mov.Av.(DD$Acc_z) 
+ acc$stX = Mov.Av.(acc$ACCX)
+ acc$stY = Mov.Av.(acc$ACCY) 
+ acc$stZ = Mov.Av.(acc$ACCZ) 
 
 #Dynamic
- DD$dyX = DD$Acc_x - DD$stX
- DD$dyY = DD$Acc_y - DD$stY
- DD$dyZ = DD$Acc_z - DD$stZ
+ acc$dX = acc$ACCX - acc$stX
+ acc$dY = acc$ACCY - acc$stY
+ acc$dZ = acc$ACCZ - acc$stZ
  
 #VeDBA
- DD$VeDBA = sqrt(DD$dyX^2 + DD$dyY^2 + DD$dyZ^2)
-
+ acc$VeDBA = sqrt(acc$dX^2 + acc$dY^2 + acc$dZ^2)
  
+#VeDBAs
+ acc$VeDBAs = Mov.Av.(acc$VeDBA)
+
 #VeSBA
-
+ acc$VeSBA = sqrt(acc$stX^2 + acc$stY^2 + acc$stZ^2)
  
-#Pitch and roll 
+#Pitch
+ acc$Pitch = asin(acc$stX)
+ 
+#Roll
+ acc$Roll = asin(acc$stY)
+ 
+#PDBA
+ acc$PDBAX = abs(acc$dX)
+ acc$PDBAY = abs(acc$dY)
+ acc$PDBAZ = abs(acc$dZ)
 
-````
 
-#Build the by-half-second data set and calculate statistics
-````{r}
+options(digits.secs = 3)
+acc$datetime <- raw_acc$datetime
 
+write.csv(acc, "E:/Myotis_vivesi/17_60/Mviv17_60_acc_var.csv", row.names = FALSE)
+
+```
+
+# Build the by-half-second beahviour files and calculate summary statistics
+
+```{r}
 #mean, max, min, range of static ACC (stX/Y/Z)
-
-#mean, max, min, range of dynamic ACC (dyX/Y/Z)
-
+#mean, max, min, range of dynamic ACC (dX/Y/Z)
 #mean, max, min, range of VeDBA
-
 #mean, max, min, range of VeSBA
+#mean, max, min, range of Pitch
+#mean, max, min, range of Roll
+#mean, max, min, range of PDBA
+#acc beahviour label
+#datetime
 
-````
+# same as "ExtractACCfrombuzzTimes" files
 
-#create training(dev) and test(val) data set
-````{r}
-#that's how the input file should look like
+# read in acc data
+acc <- read.csv("E:/Myotis_vivesi/17_60/Mviv17_60_acc_var.csv")
+names(acc)
+
+acc$datetime <- ymd_hms(acc$datetime)
+
+library(pacman)
+p_load(lubridate, tidyverse, dplyr, timetools, data.table)
+op <- options(digits.secs = 3)
+
+get_time <- function(file, year = 2017, ...){
+    if(nchar(file) > 30){
+      split <- strsplit(file, split = "_")
+      month <- as.numeric(split[[1]][4])
+      day <- as.numeric(split[[1]][5])
+      hour <- as.numeric(split[[1]][6])
+      min <- as.numeric(split[[1]][7])
+      sec <- as.numeric(split[[1]][8])
+      part <- as.numeric(substr(split[[1]][length(split[[1]])], 1, 
+                                nchar(split[[1]][length(split[[1]])])-4))
+        
+      start <- ymd(paste0(year,"-",month, "-", day)) + hours(hour) + minutes(min) +
+        seconds(sec) + seconds(part*0.5)
+      return(as.character(start))  
+    }
+}
+
+```
+
+# add buzz idx: for each true_buzz find the matching acc and add an index
+
+```{r}
+# read in true_buzz_end file
+true_buzz_end <- read.csv("E:/Myotis_vivesi/17_60/Mviv17_60_true_buzz_end.csv")
+
+#remove NAs in true_buzz
+#na.omit for just removing all NA's. complete.cases allows partial selection by including only certain columns of the data frame
+true_buzz_end <- na.omit(true_buzz_end)
+
+true_buzz_end$local_buzz_end <- ymd_hms(true_buzz_end$local_buzz_end)
+
+true_buzz_end$local_buzz_end %>% unique %>% length
+
+
+acc$buzz_idx <- NA
+
+for(i in 1:nrow(true_buzz_end)){
+  buzz_end <- acc$datetime[which.min(abs(true_buzz_end$local_buzz_end[i] - acc$datetime))]
+  start <- which.min(abs((buzz_end - 0.25) - acc$datetime))
+  end <- which.min(abs((buzz_end + 0.25) - acc$datetime))
+  acc$buzz_idx[start:end] <- i
+}
+
+hist(table(acc$buzz_idx))
+
+```
+
+# add comm index to acc data frame: for each commuting call find the matching acc and add an index
+
+```{r}
+# get commuting times from audio files
+comm_files <- list.files("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_60/Commute", 
+                         include.dirs = FALSE, pattern = "Mviv*")
+comm_times <- data.frame(filename = comm_files)
+file <- comm_files[1]
+
+
+get_time(comm_files[1])
+
+# set start and end times for each audio snippet
+comm_times$start <- ymd_hms(sapply(X = comm_files, FUN = get_time)) - 7*3600
+comm_times$end <- comm_times$start + 0.5
+
+comm_times$start %>% unique %>% length
+
+comm_times <- comm_times[!duplicated(comm_times$start), ]
+
+comm_times <- comm_times[order(comm_times$start),]
+
+
+acc$comm_idx <- NA
+
+for(i in 1:nrow(comm_times)){
+  start <- which.min(abs(comm_times$start[i] - acc$datetime))
+  end <- which.min(abs(comm_times$end[i] - acc$datetime))
+  acc$comm_idx[start:end] <- i
+}
+
+hist(table(acc$comm_idx))
+
+```
+
+# add roost index to acc data frame: for each roost call find the matching acc and add an index
+```{r}
+# get roost times from audio files
+roost_files <- list.files("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_60/Roost", 
+                         include.dirs = FALSE, pattern = "Mviv*")
+roost_times <- data.frame(filename = roost_files)
+file <- roost_files[1]
+
+get_time(roost_files[1])
+
+# set start and end times for each audio snippet
+roost_times$start <- ymd_hms(sapply(X = roost_files, FUN = get_time)) - 7*3600
+roost_times$end <- roost_times$start + 0.5
+
+roost_times$start %>% unique %>% length
+
+roost_times <- roost_times[order(roost_times$start),]
+
+
+acc$roost_idx <- NA
+
+for(i in 1:nrow(roost_times)){
+  start <- which.min(abs(roost_times$start[i] - acc$datetime))
+  end <- which.min(abs(roost_times$end[i] - acc$datetime))
+  acc$roost_idx[start:end] <- i
+}
+
+hist(table(acc$roost_idx))
+
+```
+
+# add search index to acc data frame: for each search phase call find the matching acc and add an index
+
+```{r}
+# get search times from audio files
+search_files <- list.files("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_60/Search", 
+                         include.dirs = FALSE, pattern = "Mviv*")
+search_times <- data.frame(filename = search_files)
+file <- search_files[1]
+
+get_time(search_files[1])
+
+# set start and end times for each audio snippet
+search_times$start <- ymd_hms(sapply(X = search_files, FUN = get_time)) - 7*3600
+search_times$end <- search_times$start + 0.5
+
+search_times <- na.omit(search_times)
+
+search_times$start %>% unique %>% length
+
+search_times <- search_times[order(search_times$start),]
+
+
+acc$search_idx <- NA
+
+for(i in 1:nrow(search_times)){
+  start <- which.min(abs(search_times$start[i] - acc$datetime))
+  end <- which.min(abs(search_times$end[i] - acc$datetime))
+  acc$search_idx[start:end] <- i
+}
+
+hist(table(acc$search_idx))
+
+names(acc)
+acc <- acc[, -c(2:4)]
+
+write.csv(acc, "E:/Myotis_vivesi/17_60/Mviv17_60_acc_var_idx.csv", row.names = FALSE)
+
+```
+
+# clean up indexes
+
+```{r}
+acc <- read.csv("E:/Myotis_vivesi/17_60/Mviv17_60_acc_var_idx.csv")
+
+# buzz_idx: only keep counts of 21
+buzz_count <- count(acc, buzz_idx)
+
+table(buzz_count$n)
+
+acc$buzz_idx_clean <- NA
+
+for (i in 1:nrow(buzz_count)){
+  if(buzz_count$n[i] != 21) {
+    acc$buzz_idx_clean[which(acc$buzz_idx == buzz_count$buzz_idx[i])] <- NA
+  } else {
+    acc$buzz_idx_clean[which(acc$buzz_idx == buzz_count$buzz_idx[i])] <- i
+  }
+}
+
+buzz_count_clean <- count(acc, buzz_idx_clean)
+
+table(buzz_count_clean$n)
+
+
+# comm_idx: only keep counts with 20
+comm_count <- count(acc, comm_idx)
+
+table(comm_count$n)
+
+acc$comm_idx_clean <- NA
+
+for (i in 1:nrow(comm_count)){
+  if(comm_count$n[i] != 20) {
+    acc$comm_idx_clean[which(acc$comm_idx == comm_count$comm_idx[i])] <- NA
+  } else {
+    acc$comm_idx_clean[which(acc$comm_idx == comm_count$comm_idx[i])] <- i
+  }
+}
+
+comm_count_clean <- count(acc, comm_idx_clean)
+
+table(comm_count_clean$n)
+
+
+# search_idx: only keep counts with 20 & 21
+search_count <- count(acc, search_idx)
+
+table(search_count$n)
+
+acc$search_idx_clean <- NA
+
+for (i in 1:nrow(search_count)){
+  if(search_count$n[i] == 20) {
+    acc$search_idx_clean[which(acc$search_idx == search_count$search_idx[i])] <- i
+    }
+}
+
+for (i in 1:nrow(search_count)){
+  if(search_count$n[i] == 21) {
+    acc$search_idx_clean[which(acc$search_idx == search_count$search_idx[i])] <- i
+    }
+}
+
+search_count_clean <- count(acc, search_idx_clean)
+
+table(search_count_clean$n)
+
+
+# roost_idx: only keep counts with 20
+roost_count <- count(acc, roost_idx)
+
+table(roost_count$n)
+
+acc$roost_idx_clean <- NA
+
+for (i in 1:nrow(roost_count)){
+  if(roost_count$n[i] != 20) {
+    acc$roost_idx_clean[which(acc$roost_idx == roost_count$roost_idx[i])] <- NA
+  } else {
+    acc$roost_idx_clean[which(acc$roost_idx == roost_count$roost_idx[i])] <- i
+  }
+}
+
+roost_count_clean <- count(acc, roost_idx_clean)
+
+table(roost_count_clean$n)
+
+
+# throw out old indexes 
+names(acc)
+acc <- acc[, -c(17:20)]
+names(acc)[17] <- "buzz_idx"
+names(acc)[18] <- "comm_idx"
+names(acc)[19] <- "search_idx"
+names(acc)[20] <- "roost_idx"
+
+write.csv(acc, "E:/Myotis_vivesi/17_60/Mviv17_60_acc_var_idx_clean.csv", row.names = FALSE)
+
+```
+
+# add behaviour column based on indexes
+
+```{r}
+acc <- read.csv("E:/Myotis_vivesi/17_60/Mviv17_60_acc_var_idx_clean.csv")
+
+acc$behav <- NA
+
+for (i in 1:nrow(acc)) {
+  if (!is.na(acc$roost_idx[i])) {
+  acc$behav[i] <- "roost" 
+  }
+}
+
+
+for (i in 1:nrow(acc)) {
+  if (!is.na(acc$buzz_idx[i])) {
+  acc$behav[i] <- "buzz" 
+  }
+}
+
+
+for (i in 1:nrow(acc)) {
+  if (!is.na(acc$search_idx[i])) {
+  acc$behav[i] <- "search" 
+  }
+}
+
+
+for (i in 1:nrow(acc)) {
+  if (!is.na(acc$comm_idx[i])) {
+  acc$behav[i] <- "comm" 
+  }
+}
+
+
+for (i in 1:nrow(acc)) {
+  if (is.na(acc$behav[i])) {
+  acc$behav[i] <- "not_annotated" 
+  }
+}
+
+
+
+behav_count <- count(acc, behav)
+
+table(behav_count)
+
+
+# remove indexes
+names(acc)
+acc <- acc[, -c(17:20)]
+
+write.csv(acc, "E:/Myotis_vivesi/17_60/Mviv17_60_acc_behav.csv", row.names = FALSE)
+
+```
+
+# summarize acc date by 0.5 s & choose behaviour with most counts
+
+```{r}
+acc <- read.csv("E:/Myotis_vivesi/17_60/Mviv17_60_acc_behav.csv")
+
+table(acc$behav)
+
+names(acc)
+
+# summarize data over 20 rows, choose behaviour with most counts
+acc.sec <- acc %>% group_by(grp = rep(row_number(), length.out = n(), each = 20)) %>% 
+  summarise(count = n(), 
+            behav = names(which.max(table(behav))),
+            mean.stX = mean(stX), mean.stY = mean(stY), mean.stZ = mean(stZ),
+            max.stX = max(stX), max.stY = max(stY), max.stZ = max(stZ),
+            min.stX = min(stX), min.stY = min(stY), min.stZ = min(stZ),
+            range.stX = diff(range(stX)), range.stY = diff(range(stY)), range.stZ = diff(range(stZ)),
+            mean.dX = mean(dX), mean.dY = mean(dY), mean.dZ = mean(dZ),
+            max.dX = max(dX), max.dY = max(dY), max.dZ = max(dZ),
+            min.dX = min(dX), min.dY = min(dY), min.dZ = min(dZ),
+            range.dX = diff(range(dX)), range.dY = diff(range(dY)), range.dZ = diff(range(dZ)),
+            mean.VeDBA = mean(VeDBA), mean.VeSBA = mean(VeSBA),
+            max.VeDBA = max(VeDBA), max.VeSBA = max(VeSBA),
+            min.VeDBA = min(VeDBA), min.VeSBA = min(VeSBA),
+            range.VeDBA = diff(range(VeDBA)), range.VeSBA = diff(range(VeSBA)),
+            mean.Pitch = mean(Pitch), max.Pitch = max(Pitch), min.Pitch = min(Pitch), range.Pitch = diff(range(Pitch)),
+            mean.Roll = mean(Roll), max.Roll = max(Roll), min.Roll = min(Roll), range.Roll = diff(range(Roll)))
+
+table(acc.sec$behav)
+
+names(acc.sec)
+acc.sec <- acc.sec[, -c(1:2)]
+
+write.csv(acc.sec, "E:/Myotis_vivesi/17_60/Mviv17_60_acc_sec.csv", row.names = FALSE)
+
+```
+
+# summarize acc data by the buzz audio index
+
+```{r}
+buzz_acc <- acc %>% group_by(buzz_idx) %>% 
+  summarise(count = n(),
+            accx = mean(ACCX), accy = mean(ACCY), accz = mean(ACCZ),
+            maxX = max(ACCX), maxY = max(ACCY), maxZ = max(ACCZ),
+            minX = min(ACCX), minY = min(ACCY), minZ = min(ACCZ),
+            diffX = diff(range(ACCX)), diffY = diff(range(ACCY)), diffZ = diff(range(ACCZ)), 
+            stx = mean(stACCX), sty = mean(stACCY), stz = mean(stACCZ),
+            maxstX = max(stACCX), maxstY = max(stACCY), maxstZ = max(stACCZ),
+            minstX = min(stACCX), minstY = min(stACCY), minstZ = min(stACCZ),
+            diffstX = diff(range(stACCX)), diffstY = diff(range(stACCY)), diffstZ = diff(range(stACCZ)),
+            dX = mean(dACCX), dY = mean(dACCY), dZ = mean(dACCZ),
+            maxdX = max(dACCX), maxdY = max(dACCY), maxdZ = max(dACCZ),
+            mindX = min(dACCX), mindY = min(dACCY), mindZ = min(dACCZ),
+            diffdX = diff(range(dACCX)), diffdY = diff(range(dACCY)), diffdZ = diff(range(dACCZ)),
+            vedba = mean(VeDBA), vesba = mean(VeSBA),
+            maxVeDBA = max(VeDBA), maxVeSBA = max(VeSBA),
+            minVeDBA = min(VeDBA), minVeSBA = min(VeSBA),
+            diffVeDBA = diff(range(VeDBA)), diffVeSBA = diff(range(VeSBA)),
+            pitch = mean(Pitch), maxPitch = max(Pitch), minPitch = min(Pitch), diffPitch = diff(range(Pitch)),
+            roll = mean(Roll), maxRoll = max(Roll), minRoll = min(Roll), diffRoll = diff(range(roll)))
+
+head(buzz_acc, 10)
+
+buzz_acc$behav = "buzz" # add behavior
+
+table(buzz_acc$count)
+
+# only keep counts of 21
+
+buzz_acc_clean <- buzz_acc[buzz_acc$count == 21, ]
+
+table(buzz_acc_clean$count)
+
+# should also only keep rows with stACC -1 to 1
+
+write.csv(buzz_acc_clean, "E:/Myotis_vivesi/17_60/Mviv17_60_buzz_acc.csv", row.names = FALSE)
+
+```
+
+# summarize acc data by the comm audio index
+
+```{r}
+comm_acc <- acc %>% group_by(comm_idx) %>% 
+  summarise(count = n(),
+            accx = mean(ACCX), accy = mean(ACCY), accz = mean(ACCZ),
+            maxX = max(ACCX), maxY = max(ACCY), maxZ = max(ACCZ),
+            minX = min(ACCX), minY = min(ACCY), minZ = min(ACCZ),
+            diffX = diff(range(ACCX)), diffY = diff(range(ACCY)), diffZ = diff(range(ACCZ)), 
+            stx = mean(stACCX), sty = mean(stACCY), stz = mean(stACCZ),
+            maxstX = max(stACCX), maxstY = max(stACCY), maxstZ = max(stACCZ),
+            minstX = min(stACCX), minstY = min(stACCY), minstZ = min(stACCZ),
+            diffstX = diff(range(stACCX)), diffstY = diff(range(stACCY)), diffstZ = diff(range(stACCZ)),
+            dX = mean(dACCX), dY = mean(dACCY), dZ = mean(dACCZ),
+            maxdX = max(dACCX), maxdY = max(dACCY), maxdZ = max(dACCZ),
+            mindX = min(dACCX), mindY = min(dACCY), mindZ = min(dACCZ),
+            diffdX = diff(range(dACCX)), diffdY = diff(range(dACCY)), diffdZ = diff(range(dACCZ)),
+            vedba = mean(VeDBA), vesba = mean(VeSBA),
+            maxVeDBA = max(VeDBA), maxVeSBA = max(VeSBA),
+            minVeDBA = min(VeDBA), minVeSBA = min(VeSBA),
+            diffVeDBA = diff(range(VeDBA)), diffVeSBA = diff(range(VeSBA)),
+            pitch = mean(Pitch), maxPitch = max(Pitch), minPitch = min(Pitch), diffPitch = diff(range(Pitch)),
+            roll = mean(Roll), maxRoll = max(Roll), minRoll = min(Roll), diffRoll = diff(range(roll)))
+
+head(comm_acc, 10)
+
+comm_acc$behav = "comm" # add behavior
+
+table(comm_acc$count)
+
+# only keep counts with 20
+
+comm_acc_clean <- comm_acc[comm_acc$count == 20, ]
+
+table(comm_acc_clean$count)
+
+# should also only keep rows with stACC -1 to 1
+
+write.csv(comm_acc_clean, "E:/Myotis_vivesi/17_60/Mviv17_60_comm_acc.csv", row.names = FALSE)
+
+```
+
+# summarize acc data by the roost audio index
+```{r}
+roost_acc <- acc %>% group_by(roost_idx) %>% 
+  summarise(count = n(),
+            accx = mean(ACCX), accy = mean(ACCY), accz = mean(ACCZ),
+            maxX = max(ACCX), maxY = max(ACCY), maxZ = max(ACCZ),
+            minX = min(ACCX), minY = min(ACCY), minZ = min(ACCZ),
+            diffX = diff(range(ACCX)), diffY = diff(range(ACCY)), diffZ = diff(range(ACCZ)), 
+            stx = mean(stACCX), sty = mean(stACCY), stz = mean(stACCZ),
+            maxstX = max(stACCX), maxstY = max(stACCY), maxstZ = max(stACCZ),
+            minstX = min(stACCX), minstY = min(stACCY), minstZ = min(stACCZ),
+            diffstX = diff(range(stACCX)), diffstY = diff(range(stACCY)), diffstZ = diff(range(stACCZ)),
+            dX = mean(dACCX), dY = mean(dACCY), dZ = mean(dACCZ),
+            maxdX = max(dACCX), maxdY = max(dACCY), maxdZ = max(dACCZ),
+            mindX = min(dACCX), mindY = min(dACCY), mindZ = min(dACCZ),
+            diffdX = diff(range(dACCX)), diffdY = diff(range(dACCY)), diffdZ = diff(range(dACCZ)),
+            vedba = mean(VeDBA), vesba = mean(VeSBA),
+            maxVeDBA = max(VeDBA), maxVeSBA = max(VeSBA),
+            minVeDBA = min(VeDBA), minVeSBA = min(VeSBA),
+            diffVeDBA = diff(range(VeDBA)), diffVeSBA = diff(range(VeSBA)),
+            pitch = mean(Pitch), maxPitch = max(Pitch), minPitch = min(Pitch), diffPitch = diff(range(Pitch)),
+            roll = mean(Roll), maxRoll = max(Roll), minRoll = min(Roll), diffRoll = diff(range(roll)))
+
+head(roost_acc, 10)
+
+roost_acc$behav = "roost" # add behavior
+
+table(roost_acc$count)
+
+# only keep counts with 20
+
+roost_acc_clean <- roost_acc[roost_acc$count == 20, ]
+
+table(roost_acc_clean$count)
+
+# should also only keep rows with stACC -1 to 1
+
+write.csv(roost_acc_clean, "E:/Myotis_vivesi/17_60/Mviv17_60_roost_acc.csv", row.names = FALSE)
+
+```
+
+# summarize acc data by the search audio index
+```{r}
+search_acc <- acc %>% group_by(search_idx) %>% 
+  summarise(count = n(),
+            accx = mean(ACCX), accy = mean(ACCY), accz = mean(ACCZ),
+            maxX = max(ACCX), maxY = max(ACCY), maxZ = max(ACCZ),
+            minX = min(ACCX), minY = min(ACCY), minZ = min(ACCZ),
+            diffX = diff(range(ACCX)), diffY = diff(range(ACCY)), diffZ = diff(range(ACCZ)), 
+            stx = mean(stACCX), sty = mean(stACCY), stz = mean(stACCZ),
+            maxstX = max(stACCX), maxstY = max(stACCY), maxstZ = max(stACCZ),
+            minstX = min(stACCX), minstY = min(stACCY), minstZ = min(stACCZ),
+            diffstX = diff(range(stACCX)), diffstY = diff(range(stACCY)), diffstZ = diff(range(stACCZ)),
+            dX = mean(dACCX), dY = mean(dACCY), dZ = mean(dACCZ),
+            maxdX = max(dACCX), maxdY = max(dACCY), maxdZ = max(dACCZ),
+            mindX = min(dACCX), mindY = min(dACCY), mindZ = min(dACCZ),
+            diffdX = diff(range(dACCX)), diffdY = diff(range(dACCY)), diffdZ = diff(range(dACCZ)),
+            vedba = mean(VeDBA), vesba = mean(VeSBA),
+            maxVeDBA = max(VeDBA), maxVeSBA = max(VeSBA),
+            minVeDBA = min(VeDBA), minVeSBA = min(VeSBA),
+            diffVeDBA = diff(range(VeDBA)), diffVeSBA = diff(range(VeSBA)),
+            pitch = mean(Pitch), maxPitch = max(Pitch), minPitch = min(Pitch), diffPitch = diff(range(Pitch)),
+            roll = mean(Roll), maxRoll = max(Roll), minRoll = min(Roll), diffRoll = diff(range(roll)))
+
+head(search_acc, 10)
+
+search_acc$behav = "search" # add behavior
+
+table(search_acc$count)
+
+# only keep counts with 20 & 21
+
+search_acc_clean <- search_acc[search_acc$count > 19 & search_acc$count < 22, ]
+
+table(search_acc_clean$count)
+
+# should also only keep rows with stACC -1 to 1
+
+write.csv(search_acc_clean, "E:/Myotis_vivesi/17_60/Mviv17_60_search_acc.csv", row.names = FALSE)
+```
+
+# create training(dev) and test(val) data set
+
+```{r}
+# that's how the input file should look like
 catdata <- read.csv("C:/Users/leoni/Documents/Studium/#Studium_Allg/Master Konstanz/VtK Organismal Biology/Cat_data_merged.csv")
 
-#install.packages("randomForest")
+data <- read.csv("E:/Myotis_vivesi/17_60/Mviv17_60_acc_sec.csv")
+
+# only keep 1100 (max for comm) of each behaviour
+data <- na.omit(data)
+
+table(data$behav)
+
+buzz <- filter(data, behav == "buzz")
+buzz <- slice_sample(buzz, n = 1100)
+
+comm <- filter(data, behav == "comm")
+comm <- slice_sample(comm, n = 1100)
+
+roost <- filter(data, behav == "roost")
+roost <- slice_sample(roost, n = 1100)
+
+search <- filter(data, behav == "search")
+search <- slice_sample(search, n = 1100)
+
+not_annotated <- filter(data, behav == "not_annotated")
+not_annotated <- slice_sample(not_annotated, n = 1100)
+
+data_na <- rbind(buzz, comm, roost, search, not_annotated)
+
+data <- rbind(buzz, comm, roost, search)
+
 library(randomForest)
 
-#Development, Validation
+# Development, Validation
 sample.ind <- sample(2, nrow(data), replace = T, prob = c(0.6, 0.4))
-dev <- data[which(sample.ind == 1),] #development sample,60% 
-val <- data[which(sample.ind == 2),] #validation sample,40%
+dev <- data[which(sample.ind == 1),] # development sample,60% 
+val <- data[which(sample.ind == 2),] # validation sample,40%
 
-dev <- na.omit(dev) #leave out NAs
+
 # check same distributions
 table(dev$behav) / nrow(dev)
 table(val$behav) / nrow(val)
 
-#check for behaviour to exclude
-table(data$behav) #most important!
+# check for behaviours to exclude
+table(data$behav)
 table(dev$behav)
 table(val$behav)
-````
+```
 
 #train RF
-````{r}
-#formula
-varNames = paste(colnames(dev)[!colnames(dev) %in% c('X',"Date","Time","Timestamp","ID","behav","UTC","file")], collapse = "+")
-form = as.formula(paste("behav", varNames, sep = " ~ "))
-# we want to predict "behav" (response variable) using each of the remaining columns of data = varNames (predictors/ features)
-#formula = behav ~ . (remaining columns after behav)
+
+```{r}
+
+dev$behav <- as.factor(dev$behav)
 
 #forest
 set.seed(222)
-R.Forest <- randomForest(formula = form, data = dev, ntree = 1000, importance = T) #delete not important behaviour, increase number of trees
+R.Forest_na <- randomForest(formula = behav ~ ., data = dev, ntree = 1000, mtry = 2, importance = TRUE)
+
+R.Forest <- randomForest(formula = behav ~ ., data = dev, ntree = 1000, mtry = 2, importance = TRUE)
+#increase number of trees or mtry
 #formula: formula describing the predictor and response variables
+#formula = behav ~ . (remaining columns after behav)
+#we want to predict "behav" (response variable) using each of the remaining columns of data
 #data: data frame containing the variables in the model
 #ntree: number of trees to be generated
 #mtry: number of randomly selected features used in the construction of each tree (default value = sqrt(number of features))
 #importance: calculate variable importance
 
-R.Forest                                   
+R.Forest_na
+
+R.Forest
 #lists the call used to build the classifier
 #number of trees
 #variables at each split
@@ -167,35 +736,20 @@ R.Forest
 #calculated by counting however many points in the training set were misclassified (2 versicolor and 2 virginica observations = 4) and dividing this number by the total number of observations (4/75 ~ 5.33%)
 #select the combination of ntrees and mtry that produces the smallest value for OOB error rate
 #for more complicated data sets, i.e. when a higher number of features is present, a good idea is to use cross-validation to perform feature selection using the OOB error rate (see rfcv from randomForest for more details)
-````
+
+```
 
 #tune parameters ntree and mtry
-````{r}
+
+```{r}
 #check how many trees are required (ntrees)
-plot(R.Forest)  
+plot(R.Forest)
 # plots number of trees (x) against mean squared error (mse) (y)
 
 #find number of trees that produce lowest mse
-which.min(R.Forest$mse)
-
-
-#check how many predictor variables should be randomly chosen at each split (mtry)
-#growing 400 trees for 13 times i.e for all 13 predictors
-oob.err = double(13)
-test.err = double(13)
-
-for(mtry in 1:13) {
-  rf = randomForest(form, data = dev, mtry = mtry, ntree = 400) 
-  oob.err[mtry] = rf$mse[400] #Error of all trees fitted; mse = mean squared error
-  
-  pred <- predict(rf, val) #Predictions on Test Set for each Tree
-  test.err[mtry] = with(val, mean((behav - pred)^2)) #Mean Squared Test Error
-}
-
-#Plotting both Test Error and Out of Bag Error
-matplot(1:mtry , cbind(oob.err,test.err), pch = 19 , col = c("red","blue"), type = "b", ylab = "Mean Squared Error", xlab = "Number of Predictors Considered at each Split")
-legend("topright", legend = c("Out of Bag Error","Test Error"), pch = 19, col = c("red","blue"))
-#On the Extreme Right Hand Side of the above plot, we considered all possible 13 predictors at each Split which is only Bagging
+which.min(R.Forest$err.rate)
+## R.Forest: 3068
+## R.Forest_na: 4229
 
 
 #Check error rates for each behaviour
@@ -204,12 +758,12 @@ colnames(R.Forest$err.rate) #check colnames
 
 #use tuneRF() to adjust parameters
 RF_tuned <- tuneRF(
-            x = varNames, #define predictor variables
+            x = dev[, 2:40], #define predictor variables
             y = dev$behav, #define response variable
-            ntreeTry = 500,
-            mtryStart = 4, 
+            ntreeTry = 1000,
+            mtryStart = 2, 
             stepFactor = 1.5,
-            improve = 0.01,
+            improve = 0.1,
             trace = FALSE #don't show real-time progress
             )
 #ntreeTry: The number of trees to build.
@@ -219,10 +773,11 @@ RF_tuned <- tuneRF(
 
 #creates a plot with the number of predictors (mtry) on x and the oob estimated error on y
 #use number of predictors with lowest oob estimated error
-````
+```
 
 #Variable Importance
-````{r}
+
+```{r}
 #display the importance of each predictor variable
 varImpPlot(R.Forest, sort = T, main = "Variable Importance", n.var = 25)
 #x: average increase in node purity
@@ -244,10 +799,11 @@ var.imp[order(var.imp$MeanDecreaseGini, decreasing = T),]
 barplot(var.imp$MeanDecreaseGini[order(var.imp$MeanDecreaseGini, decreasing = T)],
         names.arg = var.imp$Variables[order(var.imp$MeanDecreaseGini, decreasing = T)], 
         las = 2, bty = "L", ylab = "Mean Gini Decrease")
-````
+```
 
 #validate how good the model is on the test data (val)
-````{r}
+
+```{r}
 dev$pred <- predict(R.Forest, dev)
 val$pred <- predict(R.Forest, val)
 
@@ -257,7 +813,7 @@ CM = matrix(data = 0, nrow = ncol(CM.samp1), ncol = ncol(CM.samp1), dimnames = l
 
 for (j in 1:nrow(CM.samp1)){
   CM[(rownames(CM.samp1[j,,drop = F])),] = CM.samp1[j,]
-  }   
+}   
 
 
 #column = we observed, row = model predicted 
@@ -267,4 +823,4 @@ AEA = sum(diag(CM)) / sum(CM) #general accuracy
 #recall <- how much percent the model recognizes from observed data
 #precision <- how much of the recognized data is correct
 
-````
+```
