@@ -88,7 +88,6 @@ indexes <- sample(1:nrow(iris), size = data_set_size)
 training <- iris[indexes,]
 validation1 <- iris[-indexes,]
 
-
 ##train the model
 rf_classifier = randomForest(Species ~ ., data = training, ntree = 100, mtry = 2, importance = TRUE)
 
