@@ -44,7 +44,7 @@ library(chron)
 Mov.Av. = function(obj){
   ma = obj
   for(i in AccHz:length(obj)){
-    ma[i] = mean(obj[(i-AccHz):(i+AccHz)], na.rm = T)
+    ma[i] = mean(obj[(i-AccHz):(i+AccHz)], na.rm = TRUE)
   }
   for(i in 1:AccHz){
     ma[i] = NA
