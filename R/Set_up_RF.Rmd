@@ -1,0 +1,636 @@
+---
+title: "Set up RF"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+# load libraries
+
+```{r}
+library(pacman)
+p_load(lubridate, tidyverse, dplyr, timetools, data.table, chron)
+op <- options(digits.secs = 3)
+```
+
+# calculate predictor variables to go into RF
+
+```{r}
+# csv file with raw acc data is converted to DDMT format and raw values are converted to g by dividing all axes with 16384
+# this file is then loaded into DDMT, where I do an offset correction and set the device orientation
+# corrected ACC values are then saved as a text file
+# this text file is then manually converted to csv (also format ACC columns as text!) (can I load this file directly?)
+# then load this file with corrected acc values in g
+# with this I can calculate predictor variables
+
+
+acc <- fread("E:/Myotis_vivesi/DDMT/Mviv18_06_ACC_Call_split1.txt")
+
+#### only for 17_49 with two splits from DDMT
+acc2 <- fread("E:/Myotis_vivesi/DDMT/Mviv17_49_ACC_Call_split2.txt")
+
+names(acc1)
+names(acc1)[1] <- "Event"
+
+names(acc2)
+names(acc2)[1] <- "Event"
+
+acc <- rbind(acc1, acc2)
+acc <- acc[order(acc$Event), ]
+acc <- acc %>% distinct(Event, .keep_all = TRUE)
+####
+
+
+names(acc)
+acc <- acc[,1:6]
+names(acc)[1] <- "Event"
+names(acc)[2] <- "ACCX"
+names(acc)[3] <- "ACCY"
+names(acc)[4] <- "ACCZ"
+names(acc)[6] <- "Time"
+
+acc$datetime <- paste(acc$Date, acc$Time)
+
+acc <- acc[, -c(5:6)]
+
+
+# calculate sampling rate
+acc$datetime <- dmy_hms(acc$datetime)
+acc$datetime <- acc$datetime - 7*3600
+acc <- na.omit(acc)
+
+options(digits.secs = 0)
+AccHz <- median(table(acc$datetime))
+
+# Hz states for the sampling frequency of acceleration (in our case 40Hz)
+# Duration states for the timestep in seconds to be used in the running mean (in our case 3 seconds)
+# Hz=40
+# Duration=3
+AccHz = Hz*Duration/2
+
+
+# running mean 
+Mov.Av. = function(obj){
+  ma = obj
+  for(i in AccHz:length(obj)){
+    ma[i] = mean(obj[(i-AccHz):(i+AccHz)], na.rm = TRUE)
+  }
+  for(i in 1:AccHz){
+    ma[i] = NA
+  }
+  for(i in (length(obj)-AccHz):length(obj)){
+    ma[i] = NA
+  }
+  ma
+}
+
+
+# Static: running mean = 40 data points -> 1 sec
+ acc$stX = Mov.Av.(acc$ACCX)
+ acc$stY = Mov.Av.(acc$ACCY) 
+ acc$stZ = Mov.Av.(acc$ACCZ)
+ 
+# Dynamic
+ acc$dX = acc$ACCX - acc$stX
+ acc$dY = acc$ACCY - acc$stY
+ acc$dZ = acc$ACCZ - acc$stZ
+ 
+# VeDBA
+ acc$VeDBA = sqrt(acc$dX^2 + acc$dY^2 + acc$dZ^2)
+ 
+# VeDBAs
+ # acc$VeDBAs = Mov.Av.(acc$VeDBA)
+
+# VeSBA
+ acc$VeSBA = sqrt(acc$stX^2 + acc$stY^2 + acc$stZ^2)
+ 
+# Pitch
+ acc$Pitch = asin(acc$stX)
+ 
+# Roll
+ acc$Roll = asin(acc$stY)
+ 
+# PDBA
+ #acc$PDBAX = abs(acc$dX)
+ #acc$PDBAY = abs(acc$dY)
+ #acc$PDBAZ = abs(acc$dZ)
+
+
+options(digits.secs = 3)
+
+write.csv(acc, "E:/Myotis_vivesi/18_06/Mviv18_06_acc_var.csv", row.names = FALSE)
+
+detach("package:chron", unload = TRUE)
+
+```
+
+# add behaviour indexes: for each call find the matching acc and add an index
+
+# add buzz idx
+
+```{r}
+# read in acc data
+ acc <- read.csv("E:/Myotis_vivesi/18_06/Mviv18_06_acc_var.csv")
+
+ acc$datetime <- ymd_hms(acc$datetime)
+
+# fix offset file
+buzz_times <- read.csv("E:/Myotis_vivesi/data/Audio/Mviv18/Mviv18_06/truebuzz/Mviv18_06_truebuzz.csv")
+offset <- fread("E:/Myotis_vivesi/18_06/Mviv18_06_truebuzz_offset.csv")
+
+names(offset)
+names(offset)[1] <- "file"
+names(offset)[2] <- "offset"
+names(offset)[3] <- "loud_buzz_end"
+names(offset)[4] <- "start_clip"
+names(offset)[5] <- "segment"
+
+offset$file <- buzz_times$file  
+offset$segment <- buzz_times$segment
+offset$start_clip <- ymd_hms(buzz_times$start_clip)
+
+# replace Nas in loud buzz end with 0
+# offset$loud_buzz_end <- if_else(is.na(offset$loud_buzz_end), 0, 1)
+
+write.csv(offset, file = "E:/Myotis_vivesi/18_06/Mviv18_06_truebuzz_offset1.csv", row.names = FALSE)
+
+
+# read in true_buzz_offset and calculate true_buzz_ends
+true_buzz <- read.csv("E:/Myotis_vivesi/18_06/Mviv18_06_truebuzz_offset1.csv")
+
+true_buzz$start_clip <- ymd_hms(true_buzz$start_clip)
+
+#calculate end of buzz in each clip
+true_buzz$buzz_end <- NA
+true_buzz$buzz_end <- true_buzz$start_clip + true_buzz$segment*0.5 + true_buzz$offset
+
+true_buzz$local_buzz_end <- NA
+true_buzz$local_buzz_end <- true_buzz$buzz_end - 7*3600
+
+true_buzz <- true_buzz[order(true_buzz$local_buzz_end),]
+
+write.csv(true_buzz, "E:/Myotis_vivesi/18_06/Mviv18_06_true_buzz_end.csv", row.names = FALSE)
+
+
+# read in true_buzz_end file
+true_buzz_end <- read.csv("E:/Myotis_vivesi/18_06/Mviv18_06_true_buzz_end.csv")
+
+# remove NAs
+true_buzz_end <- na.omit(true_buzz_end)
+
+true_buzz_end$local_buzz_end <- ymd_hms(true_buzz_end$local_buzz_end)
+
+# check for duplicates, file length should match output
+true_buzz_end$local_buzz_end %>% unique %>% length
+
+true_buzz_end <- true_buzz_end[!duplicated(true_buzz_end$local_buzz_end), ]
+
+
+acc$buzz_idx <- NA
+
+for(i in 1:nrow(true_buzz_end)){
+  buzz_end <- acc$datetime[which.min(abs(true_buzz_end$local_buzz_end[i] - acc$datetime))]
+  start <- which.min(abs((buzz_end - 0.25) - acc$datetime))
+  end <- which.min(abs((buzz_end + 0.25) - acc$datetime))
+  acc$buzz_idx[start:end] <- i
+}
+
+```
+
+# add comm idx
+
+```{r}
+# change 2017 to 2018 for 18_06
+get_time <- function(file, year = 2018, ...){
+    if(nchar(file) > 30){
+      split <- strsplit(file, split = "_")
+      month <- as.numeric(split[[1]][4])
+      day <- as.numeric(split[[1]][5])
+      hour <- as.numeric(split[[1]][6])
+      min <- as.numeric(split[[1]][7])
+      sec <- as.numeric(split[[1]][8])
+      part <- as.numeric(substr(split[[1]][length(split[[1]])], 1, 
+                                nchar(split[[1]][length(split[[1]])])-4))
+        
+      start <- ymd(paste0(year, "-", month, "-", day)) + hours(hour) + minutes(min) +
+        seconds(sec) + seconds(part*0.5)
+      return(as.character(start))  
+    }
+}
+
+
+# function for 17_49
+get_time <- function(file, year = 2017, ...){
+    if(nchar(file) > 30){
+      split <- strsplit(file, split = "_")
+      month <- as.numeric(split[[1]][5])
+      day <- as.numeric(split[[1]][6])
+      hour <- as.numeric(split[[1]][7])
+      min <- as.numeric(split[[1]][8])
+      sec <- as.numeric(split[[1]][9])
+      part <- as.numeric(substr(split[[1]][length(split[[1]])], 1, 
+                                nchar(split[[1]][length(split[[1]])])-4))
+        
+      start <- ymd(paste0(year, "-", month, "-", day)) + hours(hour) + minutes(min) +
+        seconds(sec) + seconds(part*0.5)
+      return(as.character(start))  
+    }
+}
+
+
+# get commuting times from audio files
+comm_files <- list.files("E:/Myotis_vivesi/data/Audio/Mviv18/Mviv18_06/Commute", 
+                         include.dirs = FALSE, pattern = "Mviv*")
+comm_times <- data.frame(filename = comm_files)
+file <- comm_files[1]
+
+get_time(comm_files[1])
+
+# set start and end times for each audio snippet
+comm_times$start <- ymd_hms(sapply(X = comm_files, FUN = get_time)) - 7*3600
+comm_times$end <- comm_times$start + 0.5
+
+# remove NAs
+comm_times <- na.omit(comm_times)
+
+# check for duplicates, file length should match output
+comm_times$start %>% unique %>% length
+
+comm_times <- comm_times[!duplicated(comm_times$start), ]
+
+comm_times <- comm_times[order(comm_times$start), ]
+
+
+acc$comm_idx <- NA
+
+for(i in 1:nrow(comm_times)){
+  start <- which.min(abs(comm_times$start[i] - acc$datetime))
+  end <- which.min(abs(comm_times$end[i] - acc$datetime))
+  acc$comm_idx[start:end] <- i
+}
+
+```
+
+# add roost idx
+
+```{r}
+# get roost times from audio files
+roost_files <- list.files("E:/Myotis_vivesi/data/Audio/Mviv18/Mviv18_06/Roost", 
+                         include.dirs = FALSE, pattern = "Mviv*")
+roost_times <- data.frame(filename = roost_files)
+file <- roost_files[1]
+
+get_time(roost_files[1])
+
+# set start and end times for each audio snippet
+roost_times$start <- ymd_hms(sapply(X = roost_files, FUN = get_time)) - 7*3600
+roost_times$end <- roost_times$start + 0.5
+
+
+#### for 17_49
+#1:184 Mviv17_49_021082_U17_06_23_08_43_48.346_363U-U17_06_22_08_43_45.498_363U.wav_23.jpg
+#185:rest Mviv17_49_U17_06_22_08_43_50.494_363U-U17_06_22_08_43_54.782_363U.wav_000.jpg
+roost_times$start <- NA
+roost_times$start[1] <- get_time(roost_files[1])
+
+roost_times$start[1:184] <- sapply(X = roost_files[1:184], FUN = get_time)
+roost_times$start[185:499] <- sapply(X = roost_files[185:499], FUN = get_time1)
+roost_times$start <- ymd_hms(roost_times$start)
+roost_times$start <- roost_times$start - 7*3600
+roost_times$end <- roost_times$start + 0.5
+####
+
+
+# remove NAs
+roost_times <- na.omit(roost_times)
+
+# check for duplicates, file length should match output
+roost_times$start %>% unique %>% length
+
+roost_times <- roost_times[!duplicated(roost_times$start), ]
+
+roost_times <- roost_times[order(roost_times$start),]
+
+
+acc$roost_idx <- NA
+
+for(i in 1:nrow(roost_times)){
+  start <- which.min(abs(roost_times$start[i] - acc$datetime))
+  end <- which.min(abs(roost_times$end[i] - acc$datetime))
+  acc$roost_idx[start:end] <- i
+}
+
+```
+
+# add search idx
+
+```{r}
+# get search times from audio files
+search_files <- list.files("E:/Myotis_vivesi/data/Audio/Mviv18/Mviv18_06/Search", 
+                         include.dirs = FALSE, pattern = "Mviv*")
+search_times <- data.frame(filename = search_files)
+file <- search_files[1]
+
+get_time(search_files[1])
+
+# set start and end times for each audio snippet
+search_times$start <- ymd_hms(sapply(X = search_files, FUN = get_time)) - 7*3600
+search_times$end <- search_times$start + 0.5
+
+# remove NAs
+search_times <- na.omit(search_times)
+
+# check for duplicates, file length should match output
+search_times$start %>% unique %>% length
+
+search_times <- search_times[!duplicated(search_times$start), ]
+
+search_times <- search_times[order(search_times$start), ]
+
+
+acc$search_idx <- NA
+
+for(i in 1:nrow(search_times)){
+  start <- which.min(abs(search_times$start[i] - acc$datetime))
+  end <- which.min(abs(search_times$end[i] - acc$datetime))
+  acc$search_idx[start:end] <- i
+}
+
+
+write.csv(acc, "E:/Myotis_vivesi/18_06/Mviv18_06_acc_var_idx.csv", row.names = FALSE)
+
+```
+
+# clean up indexes
+
+```{r}
+acc <- read.csv("E:/Myotis_vivesi/18_06/Mviv18_06_acc_var_idx.csv")
+
+# buzz idx
+buzz_count <- count(acc, buzz_idx)
+
+table(buzz_count$n)
+
+acc$buzz_idx_clean <- NA
+
+# for 40 Hz ~ 20; for 50 Hz ~ 25
+
+for (i in 1:nrow(buzz_count)){
+  if(buzz_count$n[i] == 25) {
+    acc$buzz_idx_clean[which(acc$buzz_idx == buzz_count$buzz_idx[i])] <- i
+  }
+}
+
+for (i in 1:nrow(buzz_count)){
+  if(buzz_count$n[i] == 26) {
+    acc$buzz_idx_clean[which(acc$buzz_idx == buzz_count$buzz_idx[i])] <- i
+    }
+}
+
+buzz_count_clean <- count(acc, buzz_idx_clean)
+
+table(buzz_count_clean$n)
+
+
+# comm_idx
+comm_count <- count(acc, comm_idx)
+
+table(comm_count$n)
+
+acc$comm_idx_clean <- NA
+
+for (i in 1:nrow(comm_count)){
+  if(comm_count$n[i] == 25) {
+    acc$comm_idx_clean[which(acc$comm_idx == comm_count$comm_idx[i])] <- i
+  }
+}
+
+for (i in 1:nrow(comm_count)){
+  if(comm_count$n[i] == 26) {
+    acc$comm_idx_clean[which(acc$comm_idx == comm_count$comm_idx[i])] <- i
+    }
+}
+
+comm_count_clean <- count(acc, comm_idx_clean)
+
+table(comm_count_clean$n)
+
+
+# search_idx
+search_count <- count(acc, search_idx)
+
+table(search_count$n)
+
+acc$search_idx_clean <- NA
+
+for (i in 1:nrow(search_count)){
+  if(search_count$n[i] == 25) {
+    acc$search_idx_clean[which(acc$search_idx == search_count$search_idx[i])] <- i
+    }
+}
+
+for (i in 1:nrow(search_count)){
+  if(search_count$n[i] == 26) {
+    acc$search_idx_clean[which(acc$search_idx == search_count$search_idx[i])] <- i
+    }
+}
+
+search_count_clean <- count(acc, search_idx_clean)
+
+table(search_count_clean$n)
+
+
+# roost_idx
+roost_count <- count(acc, roost_idx)
+
+table(roost_count$n)
+
+acc$roost_idx_clean <- NA
+
+for (i in 1:nrow(roost_count)){
+  if(roost_count$n[i] == 25) {
+    acc$roost_idx_clean[which(acc$roost_idx == roost_count$roost_idx[i])] <- i
+  }
+}
+
+for (i in 1:nrow(roost_count)){
+  if(roost_count$n[i] == 26) {
+    acc$roost_idx_clean[which(acc$roost_idx == roost_count$roost_idx[i])] <- i
+    }
+}
+
+roost_count_clean <- count(acc, roost_idx_clean)
+
+table(roost_count_clean$n)
+
+
+write.csv(acc, "E:/Myotis_vivesi/18_06/Mviv18_06_acc_var_idx_clean.csv", row.names = FALSE)
+
+```
+
+# create 0.5 s files by summarizing the acc data by indexes
+
+# summarize buzz idx
+
+```{r}
+acc <- read.csv("E:/Myotis_vivesi/18_06/Mviv18_06_acc_var_idx_clean.csv")
+
+buzz_acc <- acc %>% group_by(buzz_idx_clean) %>% 
+  summarise(count = n(),
+            mean.X = mean(ACCX), mean.Y = mean(ACCY), mean.Z = mean(ACCZ),
+            max.X = max(ACCX), max.Y = max(ACCY), max.Z = max(ACCZ),
+            min.X = min(ACCX), min.Y = min(ACCY), min.Z = min(ACCZ),
+            range.X = diff(range(ACCX)), range.Y = diff(range(ACCY)), range.Z = diff(range(ACCZ)),
+            mean.stX = mean(stX), mean.stY = mean(stY), mean.stZ = mean(stZ),
+            max.stX = max(stX), max.stY = max(stY), max.stZ = max(stZ),
+            min.stX = min(stX), min.stY = min(stY), min.stZ = min(stZ),
+            range.stX = diff(range(stX)), range.stY = diff(range(stY)), range.stZ = diff(range(stZ)),
+            mean.dX = mean(dX), mean.dY = mean(dY), mean.dZ = mean(dZ),
+            max.dX = max(dX), max.dY = max(dY), max.dZ = max(dZ),
+            min.dX = min(dX), min.dY = min(dY), min.dZ = min(dZ),
+            range.dX = diff(range(dX)), range.dY = diff(range(dY)), range.dZ = diff(range(dZ)),
+            mean.VeDBA = mean(VeDBA), mean.VeSBA = mean(VeSBA),
+            max.VeDBA = max(VeDBA), max.VeSBA = max(VeSBA),
+            min.VeDBA = min(VeDBA), min.VeSBA = min(VeSBA),
+            range.VeDBA = diff(range(VeDBA)), range.VeSBA = diff(range(VeSBA)),
+            mean.Pitch = mean(Pitch), max.Pitch = max(Pitch), min.Pitch = min(Pitch), range.Pitch = diff(range(Pitch)),
+            mean.Roll = mean(Roll), max.Roll = max(Roll), min.Roll = min(Roll), range.Roll = diff(range(Roll)))
+
+head(buzz_acc, 10)
+
+# add behavior
+buzz_acc$behav = "buzz"
+
+table(buzz_acc$count)
+
+names(buzz_acc)
+buzz_acc <- buzz_acc[, -c(1,2)]
+
+write.csv(buzz_acc, "E:/Myotis_vivesi/18_06/Mviv18_06_buzz_acc.csv", row.names = FALSE)
+
+```
+
+# summarize comm idx
+
+```{r}
+comm_acc <- acc %>% group_by(comm_idx_clean) %>% 
+  summarise(count = n(),
+            mean.X = mean(ACCX), mean.Y = mean(ACCY), mean.Z = mean(ACCZ),
+            max.X = max(ACCX), max.Y = max(ACCY), max.Z = max(ACCZ),
+            min.X = min(ACCX), min.Y = min(ACCY), min.Z = min(ACCZ),
+            range.X = diff(range(ACCX)), range.Y = diff(range(ACCY)), range.Z = diff(range(ACCZ)),
+            mean.stX = mean(stX), mean.stY = mean(stY), mean.stZ = mean(stZ),
+            max.stX = max(stX), max.stY = max(stY), max.stZ = max(stZ),
+            min.stX = min(stX), min.stY = min(stY), min.stZ = min(stZ),
+            range.stX = diff(range(stX)), range.stY = diff(range(stY)), range.stZ = diff(range(stZ)),
+            mean.dX = mean(dX), mean.dY = mean(dY), mean.dZ = mean(dZ),
+            max.dX = max(dX), max.dY = max(dY), max.dZ = max(dZ),
+            min.dX = min(dX), min.dY = min(dY), min.dZ = min(dZ),
+            range.dX = diff(range(dX)), range.dY = diff(range(dY)), range.dZ = diff(range(dZ)),
+            mean.VeDBA = mean(VeDBA), mean.VeSBA = mean(VeSBA),
+            max.VeDBA = max(VeDBA), max.VeSBA = max(VeSBA),
+            min.VeDBA = min(VeDBA), min.VeSBA = min(VeSBA),
+            range.VeDBA = diff(range(VeDBA)), range.VeSBA = diff(range(VeSBA)),
+            mean.Pitch = mean(Pitch), max.Pitch = max(Pitch), min.Pitch = min(Pitch), range.Pitch = diff(range(Pitch)),
+            mean.Roll = mean(Roll), max.Roll = max(Roll), min.Roll = min(Roll), range.Roll = diff(range(Roll)))
+
+head(comm_acc, 10)
+
+# add behavior
+comm_acc$behav = "comm" 
+
+table(comm_acc$count)
+
+names(comm_acc)
+comm_acc <- comm_acc[, -c(1,2)]
+
+write.csv(comm_acc, "E:/Myotis_vivesi/18_06/Mviv18_06_comm_acc.csv", row.names = FALSE)
+
+```
+
+# summarize roost idx
+
+```{r}
+roost_acc <- acc %>% group_by(roost_idx_clean) %>% 
+  summarise(count = n(),
+            mean.X = mean(ACCX), mean.Y = mean(ACCY), mean.Z = mean(ACCZ),
+            max.X = max(ACCX), max.Y = max(ACCY), max.Z = max(ACCZ),
+            min.X = min(ACCX), min.Y = min(ACCY), min.Z = min(ACCZ),
+            range.X = diff(range(ACCX)), range.Y = diff(range(ACCY)), range.Z = diff(range(ACCZ)),
+            mean.stX = mean(stX), mean.stY = mean(stY), mean.stZ = mean(stZ),
+            max.stX = max(stX), max.stY = max(stY), max.stZ = max(stZ),
+            min.stX = min(stX), min.stY = min(stY), min.stZ = min(stZ),
+            range.stX = diff(range(stX)), range.stY = diff(range(stY)), range.stZ = diff(range(stZ)),
+            mean.dX = mean(dX), mean.dY = mean(dY), mean.dZ = mean(dZ),
+            max.dX = max(dX), max.dY = max(dY), max.dZ = max(dZ),
+            min.dX = min(dX), min.dY = min(dY), min.dZ = min(dZ),
+            range.dX = diff(range(dX)), range.dY = diff(range(dY)), range.dZ = diff(range(dZ)),
+            mean.VeDBA = mean(VeDBA), mean.VeSBA = mean(VeSBA),
+            max.VeDBA = max(VeDBA), max.VeSBA = max(VeSBA),
+            min.VeDBA = min(VeDBA), min.VeSBA = min(VeSBA),
+            range.VeDBA = diff(range(VeDBA)), range.VeSBA = diff(range(VeSBA)),
+            mean.Pitch = mean(Pitch), max.Pitch = max(Pitch), min.Pitch = min(Pitch), range.Pitch = diff(range(Pitch)),
+            mean.Roll = mean(Roll), max.Roll = max(Roll), min.Roll = min(Roll), range.Roll = diff(range(Roll)))
+
+head(roost_acc, 10)
+
+# add behavior
+roost_acc$behav = "roost" 
+
+table(roost_acc$count)
+
+names(roost_acc)
+roost_acc <- roost_acc[, -c(1,2)]
+
+write.csv(roost_acc, "E:/Myotis_vivesi/18_06/Mviv18_06_roost_acc.csv", row.names = FALSE)
+
+```
+
+# summarize search idx
+
+```{r}
+search_acc <- acc %>% group_by(search_idx_clean) %>% 
+  summarise(count = n(),
+            mean.X = mean(ACCX), mean.Y = mean(ACCY), mean.Z = mean(ACCZ),
+            max.X = max(ACCX), max.Y = max(ACCY), max.Z = max(ACCZ),
+            min.X = min(ACCX), min.Y = min(ACCY), min.Z = min(ACCZ),
+            range.X = diff(range(ACCX)), range.Y = diff(range(ACCY)), range.Z = diff(range(ACCZ)),
+            mean.stX = mean(stX), mean.stY = mean(stY), mean.stZ = mean(stZ),
+            max.stX = max(stX), max.stY = max(stY), max.stZ = max(stZ),
+            min.stX = min(stX), min.stY = min(stY), min.stZ = min(stZ),
+            range.stX = diff(range(stX)), range.stY = diff(range(stY)), range.stZ = diff(range(stZ)),
+            mean.dX = mean(dX), mean.dY = mean(dY), mean.dZ = mean(dZ),
+            max.dX = max(dX), max.dY = max(dY), max.dZ = max(dZ),
+            min.dX = min(dX), min.dY = min(dY), min.dZ = min(dZ),
+            range.dX = diff(range(dX)), range.dY = diff(range(dY)), range.dZ = diff(range(dZ)),
+            mean.VeDBA = mean(VeDBA), mean.VeSBA = mean(VeSBA),
+            max.VeDBA = max(VeDBA), max.VeSBA = max(VeSBA),
+            min.VeDBA = min(VeDBA), min.VeSBA = min(VeSBA),
+            range.VeDBA = diff(range(VeDBA)), range.VeSBA = diff(range(VeSBA)),
+            mean.Pitch = mean(Pitch), max.Pitch = max(Pitch), min.Pitch = min(Pitch), range.Pitch = diff(range(Pitch)),
+            mean.Roll = mean(Roll), max.Roll = max(Roll), min.Roll = min(Roll), range.Roll = diff(range(Roll)))
+
+head(search_acc, 10)
+
+# add behavior
+search_acc$behav = "search" 
+
+table(search_acc$count)
+
+names(search_acc)
+search_acc <- search_acc[, -c(1,2)]
+
+write.csv(search_acc, "E:/Myotis_vivesi/18_06/Mviv18_06_search_acc.csv", row.names = FALSE)
+
+```
+
+# put together behaviour files
+
+```{r}
+
+acc_behav <- rbind(buzz_acc, roost_acc, search_acc, comm_acc)
+names(acc_behav)
+
+write.csv(acc_behav, "E:/Myotis_vivesi/18_06/Mviv18_06_acc_behav.csv", row.names = FALSE)
+
+```
