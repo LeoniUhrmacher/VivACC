@@ -159,3 +159,26 @@ for (i in 1:3)
 
 
 ````
+
+# function to tune RF
+
+```{r}
+# use tuneRF() to adjust parameters
+RF_tuned <- tuneRF(
+            x = dev[, 2:40], #define predictor variables
+            y = dev$behav, #define response variable
+            ntreeTry = 1000,
+            mtryStart = 2, 
+            stepFactor = 1.5,
+            improve = 0.1,
+            trace = FALSE #don't show real-time progress
+            )
+# ntreeTry: The number of trees to build.
+# mtryStart: The starting number of predictor variables to consider at each split.
+# stepFactor: The factor to increase by until the out-of-bag estimated error stops improving by a certain amount.
+# improve: The amount that the out-of-bag error needs to improve by to keep increasing the step factor
+
+# creates a plot with the number of predictors (mtry) on x and the oob estimated error on y
+# use number of predictors with lowest oob estimated error
+
+```
