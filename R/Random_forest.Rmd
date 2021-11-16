@@ -103,28 +103,42 @@ dev <- dev[,-67]
 val <- val[,-67]
 
 set.seed(222)
-R.Forest <- randomForest(formula = behav ~ ., data = dev, ntree = 900, importance = TRUE)
+R.Forest <- randomForest(formula = behav ~ ., data = dev, ntree = 548, importance = TRUE)
 # we want to predict "behav" (response variable) using each of the remaining columns of data (predictor variables)
-
-
-R.Forest
-# OOB rates for different ntree:
-# 100 = 18.84%
-# 900 = 
-# 1000 = 18.29%
-# 
-
-CM.dev <- R.Forest$confusion
 
 ```
 
 # tune parameters ntree and mtry
 
+# tune ntree
+
 ```{r}
 # First set mtry to default (sqrt of total number of all predictors) and search for the optimal ntree value
-# To find best ntree, build RF with different ntree values (100, 200, 300….,1,000). We build 10 RF classifiers for each ntree value, record the OOB error rate and select mtry value with minimum OOB error
+# To find best ntree, build RF with different ntree values (100, 200, 300….,1,000). We build 10 RF classifiers for each ntree value, record the OOB error rate and select ntree value with minimum OOB error
 
-# check how many trees are required (ntree)
+R.Forest
+# OOB rates for different ntree and corresponding best ntree value:
+# 100 =  18.84% -> 99  (OOB = 0.1868381)
+# 200 =  18.38% -> 158 (OOB = 0.1838124)
+# 300 =  18.84% -> 213 (OOB = 0.1821104)
+# 400 =  18.38% -> 213 (OOB = 0.1821104)
+# 500 =  18.23% -> 430 (OOB = 0.1815431)
+# 550 =  18.06% -> 548 (OOB = 0.1800303)
+# 600 =  18.1%  -> 548 (OOB = 0.1800303)
+# 700 =  18.23% -> 548 (OOB = 0.1800303)
+# 800 =  18.38% -> 548 (OOB = 0.1800303)
+# 900 =  18.32% -> 548 (OOB = 0.1800303)
+# 1000 = 18.29% -> 548 (OOB = 0.1800303)
+# --> ntree = 548 = 18% -> 548 (OOB = 0.1800303)
+
+
+# number of trees that minimizes OOB
+error.rate <- as.data.frame(R.Forest$err.rate)
+(min.OOB <- error.rate[which.min(error.rate$OOB),])
+
+CM.dev <- R.Forest$confusion
+
+# plot error rate and mark minimal OBB
 # plot(x, type = "l", main = deparse(substitute(x)))
 # plot the error rates of a randomForest object
 # x: an object of class randomForest.
@@ -132,11 +146,6 @@ CM.dev <- R.Forest$confusion
 # main: main title of the plot.
 
 plot(R.Forest)
-
-# number of trees that minimizes OOB
-error.rate <- as.data.frame(R.Forest$err.rate)
-(min.OOB <- error.rate[which.min(error.rate$OOB),])
-# for ntree = 1000 -> 548 (OOB = 0.1800303)
 
 # Check error rates for each behaviour
 colnames(R.Forest$err.rate)
@@ -155,7 +164,11 @@ abline(v = 548, col = "darkgreen")
 
 legend(696, 0.78, c("buzz","comm","roost","search", "OOB", "min.OOB"), lty = rep(1,8), lwd = rep(1,8), col = c(1:5, "darkgreen"))
 
-# find optimal mtry setting
+```
+
+# tune mtry
+
+```{r}
 # apply similar procedure such that random forest is run 10 times. The optimal number of predictors selected for split is selected for which out of bag error rate stabilizes and reach minimum
 
 
