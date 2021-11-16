@@ -97,13 +97,13 @@ table(val$behav)
 library(randomForest)
 
 # load dev and val 
-load(file = "E:/Myotis_vivesi/17_34_rm1/500_8_RF.Rdata")
+load(file = "E:/Myotis_vivesi/17_34_rm1/548_8_RF.Rdata")
 
 dev <- dev[,-67]
 val <- val[,-67]
 
 set.seed(222)
-R.Forest <- randomForest(formula = behav ~ ., data = dev, ntree = 548, importance = TRUE)
+R.Forest <- randomForest(formula = behav ~ ., data = dev, ntree = 548, mtry = 8, importance = TRUE)
 # we want to predict "behav" (response variable) using each of the remaining columns of data (predictor variables)
 
 ```
@@ -117,6 +117,12 @@ R.Forest <- randomForest(formula = behav ~ ., data = dev, ntree = 548, importanc
 # To find best ntree, build RF with different ntree values (100, 200, 300….,1,000). We build 10 RF classifiers for each ntree value, record the OOB error rate and select ntree value with minimum OOB error
 
 R.Forest
+
+# number of trees that minimizes OOB
+error.rate <- as.data.frame(R.Forest$err.rate)
+(min.OOB <- error.rate[which.min(error.rate$OOB),])
+
+
 # OOB rates for different ntree and corresponding best ntree value:
 # 100 =  18.84% -> 99  (OOB = 0.1868381)
 # 200 =  18.38% -> 158 (OOB = 0.1838124)
@@ -129,12 +135,9 @@ R.Forest
 # 800 =  18.38% -> 548 (OOB = 0.1800303)
 # 900 =  18.32% -> 548 (OOB = 0.1800303)
 # 1000 = 18.29% -> 548 (OOB = 0.1800303)
-# --> ntree = 548 = 18% -> 548 (OOB = 0.1800303)
 
+# --> best ntree = 548 = 18% -> 548 (OOB = 0.1800303)
 
-# number of trees that minimizes OOB
-error.rate <- as.data.frame(R.Forest$err.rate)
-(min.OOB <- error.rate[which.min(error.rate$OOB),])
 
 CM.dev <- R.Forest$confusion
 
@@ -162,7 +165,7 @@ lines(as.data.frame(R.Forest$err.rate)[,1], col = 5)   #turquoise -> OOB
 
 abline(v = 548, col = "darkgreen")
 
-legend(696, 0.78, c("buzz","comm","roost","search", "OOB", "min.OOB"), lty = rep(1,8), lwd = rep(1,8), col = c(1:5, "darkgreen"))
+legend(382, 0.78, c("buzz","comm","roost","search", "OOB", "min.OOB"), lty = rep(1,8), lwd = rep(1,8), col = c(1:5, "darkgreen"))
 
 ```
 
@@ -170,6 +173,23 @@ legend(696, 0.78, c("buzz","comm","roost","search", "OOB", "min.OOB"), lty = rep
 
 ```{r}
 # apply similar procedure such that random forest is run 10 times. The optimal number of predictors selected for split is selected for which out of bag error rate stabilizes and reach minimum
+
+R.Forest
+# OOB rates for different mtry:
+# 1   = 18.93%
+# 2   = 18.55%
+# 3   = 18.36%
+# 4   = 18.63%
+# 6   = 18.34%
+# 7   = 18.68%
+# 8   = 18% (default)
+# 9   = 18.36%
+# 10  = 18.66%
+# 12  = 18.59%
+# 16  = 18.51%
+
+# -> best mtry = 8
+
 
 
 # tuneRF(x, y, mtryStart, ntreeTry = 50, stepFactor = 2, improve = 0.05, trace = TRUE, plot = TRUE, doBest = FALSE)
@@ -185,12 +205,12 @@ legend(696, 0.78, c("buzz","comm","roost","search", "OOB", "min.OOB"), lty = rep
 # doBest: whether to run a forest using the optimal mtry found
 # output: a matrix whose first column contains the mtry values searched, and the second column the corresponding OOB error.
 
-tuneRF(dev[,-1], dev$behav, ntreeTry = 500, mtryStart = 2, stepFactor = 1.5, improve = 0.01, trace = TRUE, plot = TRUE)
+mtry <- tuneRF(dev[,-1], dev$behav, ntreeTry = 548, stepFactor = 1.5, improve = 0.05, trace = TRUE, plot = TRUE)
 best.m <- mtry[mtry[, 2] == min(mtry[, 2]), 1]
 print(mtry)
 print(best.m)
 
-# run RF again with best mtry
+# --> best mtry = 8
 
 ```
 
