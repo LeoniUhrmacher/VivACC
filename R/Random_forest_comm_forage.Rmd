@@ -412,12 +412,12 @@ Accuracy = sum(diag(CM.val)) / sum(CM.val)        # total number of correct pred
 # accuracy: proportion of the observations that are classified correctly
 # AEA: general accuracy
 
+
 names(Recall) = c("buzz", "comm", "roost", "search")
 plot(Recall ~ Precision, pch = 16, bty = "L", las = 1, ylim = c(0,1), xlim = c(0.4, 1), cex = 1)
-text(Precision[which(names(Recall) %in% c("buzz", "comm", "roost", "search"))], Recall[which(names(Recall) %in% c("buzz", "comm", "roost", "search"))], names(Recall)[which(names(Recall) %in% c("buzz", "comm", "roost", "search"))], pos = 2, cex = 0.9)
+text(Precision, Recall, names(Recall), pos = 2, cex = 0.9)
 
-
-save(dev, val, R.Forest, CM.dev, error.rate, min.OOB, var.Accuracy, GINI, sum_imp, CM.val, AEA, Precision, Recall, Accuracy, file = "E:/Myotis_vivesi/17_34_rm1/548_8_RF.Rdata")
+save(dev, val, R.Forest, CM.dev, error.rate, min.OOB, var.Accuracy, GINI, sum_imp, CM.val, Precision, Recall, Accuracy, file = "E:/Myotis_vivesi/17_34_rm1/548_8_RF.Rdata")
 
 
 # plot CM with corresponding precision, recall, accuracy
