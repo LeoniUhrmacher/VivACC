@@ -16,7 +16,7 @@ op <- options(digits.secs = 3)
 # create training(dev) and test(val) data set
 
 ```{r}
-data <- read.csv("E:/Myotis_vivesi/17_34_rm2/Mviv17_34_acc_behav.csv")
+data <- read.csv("E:/Myotis_vivesi/17_34_rm1/Mviv17_34_acc_behav.csv")
 names(data)
 data <- data[, c(66, 1:65)]
 
@@ -25,8 +25,17 @@ data <- na.omit(data)
 table(data$behav)
 
 
-#### fuse search & buzz
+#### compare active (buzz, search, comm) vs inactive (roost)
 data$behav[data$behav == "buzz"] <- "comm"
+data$behav[data$behav == "search"] <- "comm"
+data$behav[data$behav == "comm"] <- "active"
+data$behav[data$behav == "roost"] <- "inactive"
+
+write.csv(data, file = "E:/Myotis_vivesi/17_34_rm1/Mviv17_34_active_inactive.csv")
+
+
+
+
 
 
 #### balance behaviours
@@ -120,6 +129,7 @@ R.Forest
 
 # number of trees that minimizes OOB
 error.rate <- as.data.frame(R.Forest$err.rate)
+error.rate$ntree <- row.names(error.rate)
 (min.OOB <- error.rate[which.min(error.rate$OOB),])
 
 
@@ -151,17 +161,17 @@ CM.dev <- R.Forest$confusion
 plot(R.Forest)
 
 # Check error rates for each behaviour
-colnames(R.Forest$err.rate)
+colnames(error.rate)
 
 # Create a plot before running the lines
-plot(as.data.frame(R.Forest$err.rate)[, 2], type = "l", ylim = c(0,0.75), ylab = "Error rate", xlab = "Number of trees")
+plot(error.rate$ntree, error.rate[,1], type = "l", ylim = c(0,0.75), ylab = "Error rate", xlab = "Number of trees")
 
 # Part1
-lines(as.data.frame(R.Forest$err.rate)[,2], col = 1)   #black -> buzz
-lines(as.data.frame(R.Forest$err.rate)[,3], col = 2)   #red   -> comm 
-lines(as.data.frame(R.Forest$err.rate)[,4], col = 3)   #green -> roost
-lines(as.data.frame(R.Forest$err.rate)[,5], col = 4)   #blue  -> search
-lines(as.data.frame(R.Forest$err.rate)[,1], col = 5)   #turquoise -> OOB
+lines(error.rate[,2], col = 1)   #black -> buzz
+lines(error.rate[,3], col = 2)   #red   -> comm 
+lines(error.rate[,4], col = 3)   #green -> roost
+lines(error.rate[,5], col = 4)   #blue  -> search
+lines(error.rate[,1], col = 5)   #turquoise -> OOB
 
 abline(v = 548, col = "darkgreen")
 
@@ -191,7 +201,6 @@ R.Forest
 # -> best mtry = 8
 
 
-
 # tuneRF(x, y, mtryStart, ntreeTry = 50, stepFactor = 2, improve = 0.05, trace = TRUE, plot = TRUE, doBest = FALSE)
 # Starting with the default value, search for the optimal value (with respect to Out-of-Bag error estimate) of mtry
 # x: matrix or data frame of predictor variables
@@ -205,10 +214,10 @@ R.Forest
 # doBest: whether to run a forest using the optimal mtry found
 # output: a matrix whose first column contains the mtry values searched, and the second column the corresponding OOB error.
 
-mtry <- tuneRF(dev[,-1], dev$behav, ntreeTry = 548, stepFactor = 1.5, improve = 0.05, trace = TRUE, plot = TRUE)
-best.m <- mtry[mtry[, 2] == min(mtry[, 2]), 1]
+mtry <- tuneRF(dev[,-1], dev$behav, ntreeTry = 548, stepFactor = 2, improve = 0.05, trace = TRUE, plot = TRUE)
+best.mtry <- mtry[mtry[, 2] == min(mtry[, 2]), 1]
 print(mtry)
-print(best.m)
+print(best.mtry)
 
 # --> best mtry = 8
 
@@ -262,20 +271,20 @@ GINI <- GINI[45:65,]
 dotchart(GINI$MeanDecreaseGini, labels = GINI$Variables, main = "Mean Gini Decrease")
 
 
-Accuracy <- data.frame(importance(R.Forest, type = 1, scale = T))
-Accuracy$Variables <- row.names(Accuracy)
-Accuracy <- Accuracy[order(Accuracy$MeanDecreaseAccuracy, decreasing = TRUE),]
-Accuracy <- Accuracy[1:20,]
+var.Accuracy <- data.frame(importance(R.Forest, type = 1, scale = T))
+var.Accuracy$Variables <- row.names(var.Accuracy)
+var.Accuracy <- var.Accuracy[order(var.Accuracy$MeanDecreaseAccuracy, decreasing = TRUE),]
+var.Accuracy <- var.Accuracy[1:20,]
 
-barplot(Accuracy$MeanDecreaseAccuracy, names.arg = Accuracy$Variables, las = 2, bty = "L", ylab = "Mean Accuracy Decrease")
+barplot(var.Accuracy$MeanDecreaseAccuracy, names.arg = var.Accuracy$Variables, las = 2, bty = "L", ylab = "Mean Accuracy Decrease")
 
 
-Accuracy <- data.frame(importance(R.Forest, type = 1, scale = T))
-Accuracy$Variables <- row.names(Accuracy)
-Accuracy <- Accuracy[order(Accuracy$MeanDecreaseAccuracy, decreasing = FALSE),]
-Accuracy <- Accuracy[45:65,]
+var.Accuracy <- data.frame(importance(R.Forest, type = 1, scale = T))
+var.Accuracy$Variables <- row.names(var.Accuracy)
+var.Accuracy <- var.Accuracy[order(Accuracy$MeanDecreaseAccuracy, decreasing = FALSE),]
+var.Accuracy <- var.Accuracy[45:65,]
 
-dotchart(Accuracy$MeanDecreaseAccuracy, labels =  Accuracy$Variables, main = "Mean Accuracy Decrease")
+dotchart(var.Accuracy$MeanDecreaseAccuracy, labels =  var.Accuracy$Variables, main = "Mean Accuracy Decrease")
 
 
 
@@ -369,14 +378,24 @@ for (j in 1:nrow(CM.samp)){
 # FP: predicted buzzes, that are actually not buzzes -> FP.buzz =
 
 CM.val
+#        buzz comm roost search
+# buzz    122   22     1     57
+# comm     15  607     1    141
+# roost     0    2  1595      0
+# search  231  180     3    607
+
 table(val$behav)
+# buzz   comm  roost search 
+#  368    811   1600    805
+
 table(val$pred)
+# buzz   comm  roost search 
+#  202    764   1597   1021
 
-Recall = diag(CM.val) / apply(CM.val, 2, sum)
-Precision = diag(CM.val) / apply(CM.val, 1, sum)
-AEA = sum(diag(CM.val)) / sum(CM.val)
+Recall = diag(CM.val) / apply(CM.val, 2, sum)      # correct predictions (TP = 122) / total number of observations (TP + FN = 368) (FN = 15+231 = 246)
+Precision = diag(CM.val) / apply(CM.val, 1, sum)   # correct predictions (TP = 122) / total number of predictions (TP + FP = 202) (FP = 22+1+57 = 80)
+Accuracy = sum(diag(CM.val)) / sum(CM.val)        # total number of correct predictions (TP + TN = 2931) / total number of predictions of all behaviours (TP + TN + FP + FN = 3584) (TN = 607+1595+607 = 2809)
 
-Recall.buzz = 124 / 368 ##??? does not match TP / TP + FN ???
 
 # recall = TP / TP + FN 
 # recall: values on the diagonal, correspond to true positives and true negatives (correct predictions) whereas the others correspond to false positives and false negatives
@@ -387,7 +406,7 @@ Recall.buzz = 124 / 368 ##??? does not match TP / TP + FN ???
 # precision = TP / TP + FP 
 # precision: how much of the recognized data is correct 
 # precision: proportion of positive classifications that were predicted correctly
-# precision: proportion of predicted observations for a given behavior that actually belong to that behavior
+# precision: proportion of predictions for a given behavior that actually belong to that behavior
 
 # accuracy = TP + TN / TP + TN + FP + FN
 # accuracy: overall correct predictions 
@@ -400,11 +419,32 @@ plot(Recall ~ Precision, pch = 16, bty = "L", las = 1, ylim = c(0,1), xlim = c(0
 text(Precision[which(names(Recall) %in% c("buzz", "comm", "roost", "search"))], Recall[which(names(Recall) %in% c("buzz", "comm", "roost", "search"))], names(Recall)[which(names(Recall) %in% c("buzz", "comm", "roost", "search"))], pos = 2, cex = 0.9)
 
 
-save(dev, val, R.Forest, CM.dev, error.rate, min.OOB, Accuracy, GINI, sum_imp, CM.val, AEA, Precision, Recall, file = "E:/Myotis_vivesi/17_34_rm1/1000_8_RF.Rdata")
+save(dev, val, R.Forest, CM.dev, error.rate, min.OOB, var.Accuracy, GINI, sum_imp, CM.val, AEA, Precision, Recall, Accuracy, file = "E:/Myotis_vivesi/17_34_rm1/548_8_RF.Rdata")
 
 
-CM.val <- as.matrix(CM.val)
-rbind(CM.val, Precision)
+# plot CM with corresponding precision, recall, accuracy
+
+load(file = "E:/Myotis_vivesi/17_34_rm1/548_8_RF.Rdata")
+
+
+install.packages("kableExtra")
+library(kableExtra)
+
+# column =  observation, row = model prediction
+CM.val <- as.data.frame(CM.val)
+observations <- as.data.frame(table(val$behav))
+predictions <- as.data.frame(table(val$pred))
+
+precision <- as.data.frame(Precision)
+precision$Precision <- precision$Precision * 100
+
+
+
+rbind(CM.val, precision$Precision)
+
+CM.val[6,] <- predictions$Freq
+CM.val$observed <- observations$Freq
+
 
 
 # partialPlot(x, pred.data, x.var, which.class, w, plot = TRUE, add = FALSE, n.pt = min(length(unique(pred.data[, xname])), 51), rug = TRUE, xlab = deparse(substitute(x.var)), ylab = "", main = paste("Partial Dependence on", deparse(substitute(x.var))), ...)
