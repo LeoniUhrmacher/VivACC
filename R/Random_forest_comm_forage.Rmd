@@ -1,0 +1,514 @@
+---
+title: "Random Forest"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+# load libraries
+
+```{r}
+library(pacman)
+p_load(lubridate, tidyverse, dplyr, timetools, data.table)
+op <- options(digits.secs = 3)
+```
+
+# create training(dev) and test(val) data set
+
+```{r}
+data <- read.csv("E:/Myotis_vivesi/17_34_rm1/Mviv17_34_acc_behav.csv")
+names(data)
+data <- data[, c(66, 1:65)]
+
+data <- na.omit(data)
+
+table(data$behav)
+
+
+
+#### compare comm vs forage (buzz & search)
+data$behav[data$behav == "buzz"] <- "forage"
+data$behav[data$behav == "search"] <- "forage"
+data <- data[-which(data$behav == "roost"),]
+
+table(data$behav)
+
+write.csv(data, file = "E:/Myotis_vivesi/17_34_rm1/Mviv17_34_comm_forage.csv", row.names = FALSE)
+
+
+#### balance behaviours
+buzz <- filter(data, behav == "buzz")
+buzz <- slice_sample(buzz, n = 900)
+
+comm <- filter(data, behav == "comm")
+comm <- slice_sample(comm, n = 900)
+
+roost <- filter(data, behav == "roost")
+roost <- slice_sample(roost, n = 900)
+
+search <- filter(data, behav == "search")
+search <- slice_sample(search, n = 900)
+
+
+data <- rbind(buzz, comm, roost, search)
+
+table(data$behav)
+#### 
+
+
+data$behav <- as.factor(data$behav)
+
+
+# Development, Validation
+sample.ind <- sample(2, nrow(data), replace = T, prob = c(0.6, 0.4))
+dev <- data[which(sample.ind == 1),] # development sample, 60% 
+val <- data[which(sample.ind == 2),] # validation sample, 40%
+
+# check same distributions
+table(dev$behav) / nrow(dev)
+table(val$behav) / nrow(val)
+
+# check for behaviours to exclude
+table(dev$behav)
+table(val$behav)
+```
+
+# train RF
+
+```{r}
+
+# randomForest(formula, data, ntree = 500, mtry = 2, importance = FALSE)
+# implements Breiman’s random forest algorithm for classification and regression
+# data: an optional data frame containing the variables in the model
+# formula: a data frame or a matrix of predictors, or a formula describing the model to be fitted
+# ntree: Number of trees to grow. This should not be set to too small a number, to ensure that every input row gets predicted at least a few times
+# mtry: Number of variables randomly sampled as candidates at each split. default value for classification: sqrt(p) where p is number of variables
+# importance: Should importance of predictors be assessed?
+
+# output:
+# call: the original call to randomForest
+# type: one of regression, classification, or unsupervised
+# predicted: the predicted values of the input data based on out-of-bag samples.
+# importance: a matrix with nclass + 2 (for classification) columns. For classification, the first nclass columns are the class-specific measures computed as mean descrease in accuracy. The nclass + 1st column is the mean descrease in accuracy over all classes. The last column is the mean decrease in Gini index
+# importanceSD: The “standard errors” of the permutation-based importance measure. For classification, a p by nclass + 1 matrix corresponding to the first nclass + 1 columns of the importance matrix
+# ntree: number of trees grown.
+# mtry: number of predictors sampled for splitting at each node.
+# forest: a list that contains the entire forest
+# err.rate: vector error rates of the prediction on the input data, the i-th element being the (OOB) error rate for all trees up to the i-th.
+# confusion: the confusion matrix of the prediction (based on OOB data).
+# votes: a matrix with one row for each input data point and one column for each class, giving the fraction or number of (OOB) ‘votes’ from the random forest.
+# oob.times: number of times cases are ‘out-of-bag’ (and thus used in computing OOB error estimate)
+
+
+# Random Forest
+library(randomForest)
+
+# load dev and val 
+load(file = "E:/Myotis_vivesi/17_34_rm1/548_8_RF.Rdata")
+
+dev <- dev[,-67]
+val <- val[,-67]
+
+set.seed(222)
+R.Forest <- randomForest(formula = behav ~ ., data = dev, ntree = 548, mtry = 8, importance = TRUE)
+# we want to predict "behav" (response variable) using each of the remaining columns of data (predictor variables)
+
+```
+
+# tune parameters ntree and mtry
+
+# tune ntree
+
+```{r}
+# First set mtry to default (sqrt of total number of all predictors) and search for the optimal ntree value
+# To find best ntree, build RF with different ntree values (100, 200, 300….,1,000). We build 10 RF classifiers for each ntree value, record the OOB error rate and select ntree value with minimum OOB error
+
+R.Forest
+
+# number of trees that minimizes OOB
+error.rate <- as.data.frame(R.Forest$err.rate)
+error.rate$ntree <- row.names(error.rate)
+(min.OOB <- error.rate[which.min(error.rate$OOB),])
+
+
+# OOB rates for different ntree and corresponding best ntree value:
+# 100 =  18.84% -> 99  (OOB = 0.1868381)
+# 200 =  18.38% -> 158 (OOB = 0.1838124)
+# 300 =  18.84% -> 213 (OOB = 0.1821104)
+# 400 =  18.38% -> 213 (OOB = 0.1821104)
+# 500 =  18.23% -> 430 (OOB = 0.1815431)
+# 550 =  18.06% -> 548 (OOB = 0.1800303)
+# 600 =  18.1%  -> 548 (OOB = 0.1800303)
+# 700 =  18.23% -> 548 (OOB = 0.1800303)
+# 800 =  18.38% -> 548 (OOB = 0.1800303)
+# 900 =  18.32% -> 548 (OOB = 0.1800303)
+# 1000 = 18.29% -> 548 (OOB = 0.1800303)
+
+# --> best ntree = 548 = 18% -> 548 (OOB = 0.1800303)
+
+
+CM.dev <- R.Forest$confusion
+
+# plot error rate and mark minimal OBB
+# plot(x, type = "l", main = deparse(substitute(x)))
+# plot the error rates of a randomForest object
+# x: an object of class randomForest.
+# type: type of plot.
+# main: main title of the plot.
+
+plot(R.Forest)
+
+# Check error rates for each behaviour
+colnames(error.rate)
+
+# Create a plot before running the lines
+plot(error.rate$ntree, error.rate[,1], type = "l", ylim = c(0,0.75), ylab = "Error rate", xlab = "Number of trees")
+
+# Part1
+lines(error.rate[,2], col = 1)   #black -> buzz
+lines(error.rate[,3], col = 2)   #red   -> comm 
+lines(error.rate[,4], col = 3)   #green -> roost
+lines(error.rate[,5], col = 4)   #blue  -> search
+lines(error.rate[,1], col = 5)   #turquoise -> OOB
+
+abline(v = 548, col = "darkgreen")
+
+legend(382, 0.78, c("buzz","comm","roost","search", "OOB", "min.OOB"), lty = rep(1,8), lwd = rep(1,8), col = c(1:5, "darkgreen"))
+
+```
+
+# tune mtry
+
+```{r}
+# apply similar procedure such that random forest is run 10 times. The optimal number of predictors selected for split is selected for which out of bag error rate stabilizes and reach minimum
+
+R.Forest
+# OOB rates for different mtry:
+# 1   = 18.93%
+# 2   = 18.55%
+# 3   = 18.36%
+# 4   = 18.63%
+# 6   = 18.34%
+# 7   = 18.68%
+# 8   = 18% (default)
+# 9   = 18.36%
+# 10  = 18.66%
+# 12  = 18.59%
+# 16  = 18.51%
+
+# -> best mtry = 8
+
+
+# tuneRF(x, y, mtryStart, ntreeTry = 50, stepFactor = 2, improve = 0.05, trace = TRUE, plot = TRUE, doBest = FALSE)
+# Starting with the default value, search for the optimal value (with respect to Out-of-Bag error estimate) of mtry
+# x: matrix or data frame of predictor variables
+# y: response vector (factor for classification, numeric for regression)
+# mtryStart: starting value of mtry; default is the same as in randomForest
+# ntreeTry: number of trees used at the tuning step
+# stepFactor: at each iteration, mtry is inflated (or deflated) by this value
+# improve: the (relative) improvement in OOB error must be by this much for the search to continue
+# trace: whether to print the progress of the search
+# plot: whether to plot the OOB error as function of mtry
+# doBest: whether to run a forest using the optimal mtry found
+# output: a matrix whose first column contains the mtry values searched, and the second column the corresponding OOB error.
+
+mtry <- tuneRF(dev[,-1], dev$behav, ntreeTry = 548, stepFactor = 2, improve = 0.05, trace = TRUE, plot = TRUE)
+best.mtry <- mtry[mtry[, 2] == min(mtry[, 2]), 1]
+print(mtry)
+print(best.mtry)
+
+# --> best mtry = 8
+
+```
+
+# Variable Importance
+
+```{r}
+
+# varImpPlot(x, sort = TRUE, n.var = min(30, nrow(x$importance)), type = NULL, class = NULL, scale = TRUE, main = deparse(substitute(x)), ...)
+# Dotchart of predictor variable importance
+# x: An object of class randomForest.
+# sort: Should the variables be sorted in decreasing order of importance?
+# n.var: How many variables to show? (Ignored if sort=FALSE.)
+# type, class, scale: arguments to be passed on to importance
+# main: plot title.
+
+varImpPlot(R.Forest, sort = TRUE, main = "Variable Importance", n.var = 20)
+# x: average increase in node purity
+# y: predictor variables
+# MeanDecreaseAccuracy: estimate of the loss in prediction performance when that particular variable is omitted from the training set or: how much removing each variable reduces the accuracy of the model
+# MeanDecreaseGini: GINI is a measure of node impurity. Highest purity means that each node contains only elements of a single class. Assessing the decrease in GINI when that feature is omitted leads to an understanding of how important that feature is to split the data correctly
+
+
+# importance(x, type = NULL, class = NULL, scale = TRUE)
+# importance: extract variable importance measure
+# x: an object of class randomForest.
+# type: either 1 = mean decrease in accuracy or 2 = mean decrease in node impurity.
+# class: for classification problem, which class-specific measure to return.
+# scale: For permutation based measures, should the measures be divided their “standard errors”?
+
+# output: 
+# A matrix of importance measure, one row for each predictor variable
+# The column(s) are different importance measures
+
+
+# Variables ordered in a list
+GINI <- data.frame(importance(R.Forest, type = 2, scale = F))
+GINI$Variables <- row.names(GINI)
+GINI <- GINI[order(GINI$MeanDecreaseGini, decreasing = TRUE),]
+GINI <- GINI[1:20,]
+
+barplot(GINI$MeanDecreaseGini, names.arg = GINI$Variables, las = 2, bty = "L", ylab = "Mean Gini Decrease")
+
+
+GINI <- data.frame(importance(R.Forest, type = 2, scale = F))
+GINI$Variables <- row.names(GINI)
+GINI <- GINI[order(GINI$MeanDecreaseGini, decreasing = FALSE),]
+GINI <- GINI[45:65,]
+
+dotchart(GINI$MeanDecreaseGini, labels = GINI$Variables, main = "Mean Gini Decrease")
+
+
+var.Accuracy <- data.frame(importance(R.Forest, type = 1, scale = T))
+var.Accuracy$Variables <- row.names(var.Accuracy)
+var.Accuracy <- var.Accuracy[order(var.Accuracy$MeanDecreaseAccuracy, decreasing = TRUE),]
+var.Accuracy <- var.Accuracy[1:20,]
+
+barplot(var.Accuracy$MeanDecreaseAccuracy, names.arg = var.Accuracy$Variables, las = 2, bty = "L", ylab = "Mean Accuracy Decrease")
+
+
+var.Accuracy <- data.frame(importance(R.Forest, type = 1, scale = T))
+var.Accuracy$Variables <- row.names(var.Accuracy)
+var.Accuracy <- var.Accuracy[order(Accuracy$MeanDecreaseAccuracy, decreasing = FALSE),]
+var.Accuracy <- var.Accuracy[45:65,]
+
+dotchart(var.Accuracy$MeanDecreaseAccuracy, labels =  var.Accuracy$Variables, main = "Mean Accuracy Decrease")
+
+
+
+# Group variables by main variables if used the full formula to check which main variable is of main importance
+ {
+   var.share <- function(rf.obj, members) {
+     count <- table(rf.obj$forest$bestvar)[-1]
+     names(count) <- names(rf.obj$forest$ncat)
+     share <- count[members] / sum(count[members])
+     return(share)
+   }
+   group.importance <- function(rf.obj, groups) {
+     GINI <- as.matrix(sapply(groups, function(g) {
+       sum(importance(rf.obj, 1)[g, ]*var.share(rf.obj, g))
+     }))
+     colnames(GINI) <- "MeanDecreaseGini"
+     return(GINI)
+   }
+   
+   {groups = list(
+      X = c("mean.X", "max.X", "min.X", "range.X", "sd.X"),
+      Y = c("mean.Y", "max.Y", "min.Y", "range.Y", "sd.Y"),
+      Z = c("mean.Z", "max.Z", "min.Z", "range.Z", "sd.Z"),
+      stX = c("mean.stX", "max.stX", "min.stX", "range.stX", "sd.stX"),
+      stY = c("mean.stY", "max.stY", "min.stY", "range.stY", "sd.stY"),
+      stZ = c("mean.stZ", "max.stZ", "min.stZ", "range.stZ", "sd.stZ"),
+      dX = c("mean.dX", "max.dX", "min.dX", "range.dX", "sd.dX"),
+      dY = c("mean.dY", "max.dY", "min.dY", "range.dY", "sd.dY"),
+      dZ = c("mean.dZ", "max.dZ", "min.dZ", "range.dZ", "sd.dZ"),
+      VeDBA = c("mean.VeDBA", "max.VeDBA", "min.VeDBA", "range.VeDBA", "sd.VeDBA"),
+      VeSBA = c("mean.VeSBA", "max.VeSBA", "min.VeSBA", "range.VeSBA", "sd.VeSBA"),
+      Pitch = c("mean.Pitch", "max.Pitch", "min.Pitch", "range.Pitch", "sd.Pitch"),
+      Roll = c("mean.Roll", "max.Roll", "min.Roll", "range.Roll", "sd.Roll"))
+      }
+   
+   group.importance(R.Forest, groups)
+ }
+ 
+sum_imp <- as.data.frame(group.importance(R.Forest, groups))
+sum_imp$Variables <- row.names(sum_imp)
+sum_imp <- sum_imp[order(sum_imp$MeanDecreaseGini, decreasing = TRUE),]
+
+barplot(sum_imp$MeanDecreaseGini, names.arg = sum_imp$Variables, las = 2, bty = "L", ylab = "Mean Gini Decrease")
+
+
+sum_imp <- sum_imp[order(sum_imp$MeanDecreaseGini, decreasing = FALSE),]
+
+dotchart(sum_imp$MeanDecreaseGini, labels = sum_imp$Variables, main = "Mean Gini Decrease")
+
+```
+
+# validate how good the model is on the test data (val)
+
+```{r}
+# predict(object, newdata, type = "response", norm.votes = TRUE)
+# Prediction of test data using random forest
+# object: an object of class randomForest, as that created by the function randomForest
+# newdata: a data frame or matrix containing new data
+# type: one of response, prob. or votes, indicating the type of output: predicted values, matrix of class probabilities, or matrix of vote counts
+# norm.votes Should the vote counts be normalized (i.e., expressed as fractions)?
+# output for type = response: predicted classes (the classes with majority vote)
+
+dev$pred <- predict(R.Forest, dev)
+val$pred <- predict(R.Forest, val)
+
+CM.samp = table(val$pred, val$behav) # same as CM.val??
+
+
+CM.val = matrix(data = 0, nrow = ncol(CM.samp), ncol = ncol(CM.samp), dimnames = list(colnames(CM.samp), colnames(CM.samp)))
+
+for (j in 1:nrow(CM.samp)){
+  CM.val[(rownames(CM.samp[j,,drop = F])),] = CM.samp[j,]
+}   
+
+# column =  observation, row = model prediction
+
+# TP: positive samples correctly classified as positive
+# -> buzzes correctly classified as buzzes
+# TP: predicted buzzes, that are actually buzzes -> TP.buzz = 124
+
+# TN: negative samples correctly classified as negative
+# -> not buzzes correctly classified as not buzzes
+# TN: predicted not buzz, that are actually not buzz -> TN.buzz = 15 + 229 = 244
+
+# FN: positive samples incorrectly classified as negative
+# -> buzzes incorrectly classified as not buzzes
+# FN: predicted not buzzes, that are actually buzzes -> FN.buzz =
+
+# FP: negative samples incorrectly classified as positive
+# -> not buzzes incorrectly classified as buzzes
+# FP: predicted buzzes, that are actually not buzzes -> FP.buzz =
+
+CM.val
+#        buzz comm roost search
+# buzz    122   22     1     57
+# comm     15  607     1    141
+# roost     0    2  1595      0
+# search  231  180     3    607
+
+table(val$behav)
+# buzz   comm  roost search 
+#  368    811   1600    805
+
+table(val$pred)
+# buzz   comm  roost search 
+#  202    764   1597   1021
+
+Recall = diag(CM.val) / apply(CM.val, 2, sum)      # correct predictions (TP = 122) / total number of observations (TP + FN = 368) (FN = 15+231 = 246)
+Precision = diag(CM.val) / apply(CM.val, 1, sum)   # correct predictions (TP = 122) / total number of predictions (TP + FP = 202) (FP = 22+1+57 = 80)
+Accuracy = sum(diag(CM.val)) / sum(CM.val)        # total number of correct predictions (TP + TN = 2931) / total number of predictions of all behaviours (TP + TN + FP + FN = 3584) (TN = 607+1595+607 = 2809)
+
+
+# recall = TP / TP + FN 
+# recall: values on the diagonal, correspond to true positives and true negatives (correct predictions) whereas the others correspond to false positives and false negatives
+# recall: how much percent the model recognizes correctly from observed data
+# recall: proportion of data that is correctly classified as positive
+# recall: proportion of true observations for a given behavior that were predicted to belong to that behavior
+
+# precision = TP / TP + FP 
+# precision: how much of the recognized data is correct 
+# precision: proportion of positive classifications that were predicted correctly
+# precision: proportion of predictions for a given behavior that actually belong to that behavior
+
+# accuracy = TP + TN / TP + TN + FP + FN
+# accuracy: overall correct predictions 
+# accuracy: proportion of data points classified correctly overall
+# accuracy: proportion of the observations that are classified correctly
+# AEA: general accuracy
+
+names(Recall) = c("buzz", "comm", "roost", "search")
+plot(Recall ~ Precision, pch = 16, bty = "L", las = 1, ylim = c(0,1), xlim = c(0.4, 1), cex = 1)
+text(Precision[which(names(Recall) %in% c("buzz", "comm", "roost", "search"))], Recall[which(names(Recall) %in% c("buzz", "comm", "roost", "search"))], names(Recall)[which(names(Recall) %in% c("buzz", "comm", "roost", "search"))], pos = 2, cex = 0.9)
+
+
+save(dev, val, R.Forest, CM.dev, error.rate, min.OOB, var.Accuracy, GINI, sum_imp, CM.val, AEA, Precision, Recall, Accuracy, file = "E:/Myotis_vivesi/17_34_rm1/548_8_RF.Rdata")
+
+
+# plot CM with corresponding precision, recall, accuracy
+
+load(file = "E:/Myotis_vivesi/17_34_rm1/548_8_RF.Rdata")
+
+
+install.packages("kableExtra")
+library(kableExtra)
+
+# column =  observation, row = model prediction
+CM.val <- as.data.frame(CM.val)
+observations <- as.data.frame(table(val$behav))
+predictions <- as.data.frame(table(val$pred))
+
+precision <- as.data.frame(Precision)
+precision$Precision <- precision$Precision * 100
+
+
+
+rbind(CM.val, precision$Precision)
+
+CM.val[6,] <- predictions$Freq
+CM.val$observed <- observations$Freq
+
+
+
+# partialPlot(x, pred.data, x.var, which.class, w, plot = TRUE, add = FALSE, n.pt = min(length(unique(pred.data[, xname])), 51), rug = TRUE, xlab = deparse(substitute(x.var)), ylab = "", main = paste("Partial Dependence on", deparse(substitute(x.var))), ...)
+# Partial dependence plot gives a graphical depiction of the marginal effect of a variable on the class probability (classification)
+# x: an object of class randomForest, which contains a forest component.
+# pred.data: a data frame used for constructing the plot, usually the training data used to construct the random forest.
+# x.var: name of the variable for which partial dependence is to be examined.
+# which.class: For classification data, the class to focus on (default the first class).
+# w: weights to be used in averaging; if not supplied, mean is not weighted
+# plot: whether the plot should be shown on the graphic device.
+# add: whether to add to existing plot (TRUE).
+# n.pt: if x.var is continuous, the number of points on the grid for evaluating partial dependence.
+# rug: whether to draw hash marks at the bottom of the plot indicating the deciles of x.var.
+# xlab:  label for the x-axis.
+# ylab: label for the y-axis.
+# main: main title for the plot.
+
+partialPlot(R.Forest, pred.data = dev, x.var = max.Roll)
+
+
+# margin(x)
+# Compute or plot the margin of predictions from a randomForest classifier 
+# x: an object of class randomForest, whose type is not regression, or a matrix of predicted probabilities, one column per class and one row per observation. For the plot method, x should be an object returned by margin.
+# output: For margin, the margin of observations from the randomForest classifier (or whatever classifier that produced the predicted probability matrix given to margin). The margin of a data point is defined as the proportion of votes for the correct class minus maximum proportion of votes for the other classes. Thus under majority votes, positive margin means correct classification, and vice versa
+
+margin(R.Forest)
+
+
+
+# MDSplot(rf, fac, k=2, palette=NULL, pch=20, ...)
+# Plot the scaling coordinates of the proximity matrix from randomForest
+# rf: an object of class randomForest that contains the proximity component.
+# fac: a factor that was used as response to train rf.
+# k: number of dimensions for the scaling coordinates.
+# palette: colors to use to distinguish the classes; length must be the equal to the number of levels.
+# pch: plotting symbols to use
+
+R.Forest <- randomForest(formula = behav ~ ., data = dev, ntree = 1000, mtry = 2, importance = TRUE, proximity = TRUE)
+
+MDSplot(R.Forest, dev$behav, palette = rep(1, 3), pch = as.numeric(dev$behav))
+
+
+
+# library(rpart.plot)
+
+# prp(getTree(R.Forest, k = 1), type = 0, extra = 0, fallen.leaves = TRUE, varlen = 0, cex = 0.7, split.font = 1, border.col = 0, font = 2)
+# plots a subset of the random forest
+
+# plot(dev$mean.Roll, dev$max.Roll, col = which(dev$behav == levels(dev$behav)))
+# plot how distributed points(or separated) are e.g. vedba,
+
+# Differences between behaviours #which variables are important to distinguish which behavior
+# table=data.frame(Stx.m=tapply(dev$mean.stX,dev$Behav.Lab,mean),Stx.sd=tapply(dev$mean.stX,dev$Behav.Lab,sd))
+# table$PSD2X.m=tapply(dev$PSD2X,dev$Behav.Lab,mean)
+# table$PSD2X.sd=tapply(dev$PSD2X,dev$Behav.Lab,sd)
+# table$PSD1Z.m=tapply(dev$PSD1Z,dev$Behav.Lab,mean)
+# table$PSD1Z.sd=tapply(dev$PSD1Z,dev$Behav.Lab,sd)
+# table$VeDBA.m=tapply(dev$mean.VeDBAs ,dev$Behav.Lab,mean)
+# table$VeDBA.sd=tapply(dev$mean.VeDBAs,dev$Behav.Lab,sd)
+
+library(dunn.test)
+# Kruskal for diff. in median, supports histograms
+kruskal.test(dev$mean.Roll ~ as.factor(dev$behav))
+dunn.test(dev$mean.Roll, g = as.factor(dev$behav), method = "bonferroni")
+
+kruskal.test(dev$mean.VeDBA ~ as.factor(dev$behav))
+dunn.test(dev$mean.VeDBA, g = as.factor(dev$behav), method = "bonferroni")
+
+```
