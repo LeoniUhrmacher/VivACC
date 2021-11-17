@@ -338,15 +338,15 @@ Accuracy = sum(diag(CM.val)) / sum(CM.val)        # total number of correct pred
 
 names(Recall) = c("active", "inactive")
 plot(Recall ~ Precision, pch = 16, bty = "L", las = 1, ylim = c(0,1), xlim = c(0.5, 1), cex = 1)
-text(Precision[which(names(Recall) %in% c("active", "inactive"))], Recall[which(names(Recall) %in% c("active", "inactive"))], names(Recall)[which(names(Recall) %in% c("active", "inactive"))], pos = 2, cex = 0.9)
+text(Precision, Recall, names(Recall), pos = 2, cex = 0.9)
 
 
-save(dev, val, R.Forest, CM.dev, error.rate, min.OOB, var.Accuracy, GINI, sum_imp, CM.val, Precision, Recall, Accuracy, file = "E:/Myotis_vivesi/17_34_rm1/active_inactive/30_8_RF.Rdata")
+save(dev, val, R.Forest, CM.dev, error.rate, min.OOB, var.Accuracy, GINI, CM.val, Precision, Recall, Accuracy, file = "E:/Myotis_vivesi/17_34_rm1/active_inactive/30_8_RF.Rdata")
 
 
 # plot CM with corresponding precision, recall, accuracy
 
-load(file = "E:/Myotis_vivesi/17_34_rm1/548_8_RF.Rdata")
+load(file = "E:/Myotis_vivesi/17_34_rm1/active_inactive/30_8_RF.Rdata")
 
 
 install.packages("kableExtra")
@@ -369,51 +369,6 @@ CM.val$observed <- observations$Freq
 
 
 
-# partialPlot(x, pred.data, x.var, which.class, w, plot = TRUE, add = FALSE, n.pt = min(length(unique(pred.data[, xname])), 51), rug = TRUE, xlab = deparse(substitute(x.var)), ylab = "", main = paste("Partial Dependence on", deparse(substitute(x.var))), ...)
-# Partial dependence plot gives a graphical depiction of the marginal effect of a variable on the class probability (classification)
-# x: an object of class randomForest, which contains a forest component.
-# pred.data: a data frame used for constructing the plot, usually the training data used to construct the random forest.
-# x.var: name of the variable for which partial dependence is to be examined.
-# which.class: For classification data, the class to focus on (default the first class).
-# w: weights to be used in averaging; if not supplied, mean is not weighted
-# plot: whether the plot should be shown on the graphic device.
-# add: whether to add to existing plot (TRUE).
-# n.pt: if x.var is continuous, the number of points on the grid for evaluating partial dependence.
-# rug: whether to draw hash marks at the bottom of the plot indicating the deciles of x.var.
-# xlab:  label for the x-axis.
-# ylab: label for the y-axis.
-# main: main title for the plot.
-
-partialPlot(R.Forest, pred.data = dev, x.var = max.Roll)
-
-
-# margin(x)
-# Compute or plot the margin of predictions from a randomForest classifier 
-# x: an object of class randomForest, whose type is not regression, or a matrix of predicted probabilities, one column per class and one row per observation. For the plot method, x should be an object returned by margin.
-# output: For margin, the margin of observations from the randomForest classifier (or whatever classifier that produced the predicted probability matrix given to margin). The margin of a data point is defined as the proportion of votes for the correct class minus maximum proportion of votes for the other classes. Thus under majority votes, positive margin means correct classification, and vice versa
-
-margin(R.Forest)
-
-
-
-# MDSplot(rf, fac, k=2, palette=NULL, pch=20, ...)
-# Plot the scaling coordinates of the proximity matrix from randomForest
-# rf: an object of class randomForest that contains the proximity component.
-# fac: a factor that was used as response to train rf.
-# k: number of dimensions for the scaling coordinates.
-# palette: colors to use to distinguish the classes; length must be the equal to the number of levels.
-# pch: plotting symbols to use
-
-R.Forest <- randomForest(formula = behav ~ ., data = dev, ntree = 1000, mtry = 2, importance = TRUE, proximity = TRUE)
-
-MDSplot(R.Forest, dev$behav, palette = rep(1, 3), pch = as.numeric(dev$behav))
-
-
-
-# library(rpart.plot)
-
-# prp(getTree(R.Forest, k = 1), type = 0, extra = 0, fallen.leaves = TRUE, varlen = 0, cex = 0.7, split.font = 1, border.col = 0, font = 2)
-# plots a subset of the random forest
 
 # plot(dev$mean.Roll, dev$max.Roll, col = which(dev$behav == levels(dev$behav)))
 # plot how distributed points(or separated) are e.g. vedba,
