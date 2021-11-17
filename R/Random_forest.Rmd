@@ -25,19 +25,6 @@ data <- na.omit(data)
 table(data$behav)
 
 
-#### compare active (buzz, search, comm) vs inactive (roost)
-data$behav[data$behav == "buzz"] <- "comm"
-data$behav[data$behav == "search"] <- "comm"
-data$behav[data$behav == "comm"] <- "active"
-data$behav[data$behav == "roost"] <- "inactive"
-
-write.csv(data, file = "E:/Myotis_vivesi/17_34_rm1/Mviv17_34_active_inactive.csv")
-
-
-
-
-
-
 #### balance behaviours
 buzz <- filter(data, behav == "buzz")
 buzz <- slice_sample(buzz, n = 900)
