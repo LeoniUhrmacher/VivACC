@@ -173,7 +173,6 @@ legend(382, 0.78, c("buzz","comm","roost","search", "OOB", "min.OOB"), lty = rep
 
 R.Forest
 # OOB rates for different mtry:
-# 1   = 18.93%
 # 2   = 18.55%
 # 3   = 18.36%
 # 4   = 18.63%
@@ -454,26 +453,26 @@ CM.large[1:5,] %>%
 
 ## frequency distribution of most important variables
 
-boxplot(dev$behav, dev$sd.Z, ylab = "sd.Z", names = levels(dev$behav), col = c(2:5))
+boxplot(dev$behav, dev$sd.dZ, ylab = "sd.dZ", names = levels(dev$behav), col = c(2:5))
 
-plot(dev$behav, dev$sd.Z, ylab = "sd.Z", xlab = "", col = c(2:5))
+plot(dev$behav, dev$sd.dZ, ylab = "sd.dZ", xlab = "", col = c(2:5))
 
-hist(dev$sd.Z, xlim = c(0, 1.5), xlab = "sd.Z", main = "")
+hist(dev$sd.dZ, xlim = c(0, 1.5), xlab = "sd.dZ", main = "")
 
 
 
 par(mfrow = c(1,2))
-hist(dev$sd.Z[which(dev$behav == "comm")], xlim = c(0, 50), xlab = "sd.Z", main = "inactive")
+hist(dev$sd.dZ[which(dev$behav == "roost")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "inactive")
 
-hist(dev$sd.Z[which(dev$behav == "comm" | dev$behav == "search" | dev$behav == "buzz")], xlim = c(0, 50), xlab = "sd.Z", main = "active")
+hist(dev$sd.dZ[which(dev$behav == "comm" | dev$behav == "search" | dev$behav == "buzz")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "active")
 
 dev.off()
 
 
 par(mfrow = c(1,2))
-hist(dev$sd.Z[which(dev$behav == "comm")], xlim = c(0, 1.5), xlab = "sd.Z", main = "comm")
+hist(dev$sd.dZ[which(dev$behav == "comm")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "comm")
 
-hist(dev$sd.Z[which(dev$behav == "search" | dev$behav == "buzz")], xlim = c(0, 1.5), xlab = "sd.Z", main = "forage")
+hist(dev$sd.dZ[which(dev$behav == "search" | dev$behav == "buzz")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "forage")
 
 dev.off()
 
