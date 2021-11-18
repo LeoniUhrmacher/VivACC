@@ -344,28 +344,16 @@ text(Precision, Recall, names(Recall), pos = 2, cex = 0.9)
 save(dev, val, R.Forest, CM.dev, error.rate, min.OOB, var.Accuracy, GINI, CM.val, Precision, Recall, Accuracy, file = "E:/Myotis_vivesi/17_34_rm1/active_inactive/30_8_RF.Rdata")
 
 
-# plot CM with corresponding precision, recall, accuracy
+
 
 load(file = "E:/Myotis_vivesi/17_34_rm1/active_inactive/30_8_RF.Rdata")
 
-
-library(kableExtra)
 
 # column =  observation, row = model prediction
 CM.rel <- table(val$pred, val$behav) / nrow(val)
 
 observations <- table(val$behav)
-names(observations)[1] <- "behav"
-observations$rel_Freq <- prop.table(observations$Freq)
-table(val$behav) / nrow(val)
-
-
 predictions <- table(val$pred)
-names(predictions)[1] <- "behav"
-predictions$rel_Freq <- prop.table(predictions$Freq)
-table(val$pred) / nrow(val)
-
-
 
 options(digits = 4)
 Precision <- Precision * 100
@@ -375,25 +363,45 @@ Recall <- Recall * 100
 CM.val <- rbind(CM.val, observations)
 CM.val <- cbind(CM.val, predictions)
 CM.val <- rbind(CM.val, Precision)
-CM.val <- rbind(CM.val, Recall) 
+CM.val <- rbind(CM.val, Recall)
 
 
 write.csv(CM.val, file = "E:/Myotis_vivesi/17_34_rm1/active_inactive/CM_val.csv")
 
 
+
+# plot CM with corresponding precision, recall, accuracy
+library(kableExtra)
+
+CM.large <- read.csv(file = "E:/Myotis_vivesi/17_34_rm1/active_inactive/CM_val.csv", sep = ";")
+
+CM.large[(is.na(CM.large))] <- ""
+
+names(CM.large)[1] <- "In/Out"
+
+CM.large[1:3,]
+
+CM.large[1:3,] %>%
+  kbl(caption = "Confusion matrix: observations (columns) x predictions (rows)") %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T)
+
+
+
 ## frequency distribution of most important variables
 
-boxplot(dev$behav, dev$sd.dZ, ylab = "sd.dZ", names = levels(dev$behav), col = c(2:3))
+boxplot(dev$behav, dev$sd.Z, ylab = "sd.Z", names = levels(dev$behav), col = c(2:3))
 
-plot(dev$behav, dev$sd.dZ, ylab = "sd.dZ", xlab = "", col = c(2:3))
+plot(dev$behav, dev$sd.Z, ylab = "sd.Z", xlab = "", col = c(2:3))
 
-hist(dev$sd.dZ, xlim = c(0, 2), xlab = "sd.dZ", main = "", col = )
+hist(dev$sd.Z, xlim = c(0, 2), xlab = "sd.Z", main = "inactive vs. active")
 
 
 par(mfrow = c(1,2))
-hist(dev$sd.dZ[which(dev$behav == "active")], xlim = c(0, 2), xlab = "sd.dZ", main = "active")
+hist(dev$sd.Z[which(dev$behav == "inactive")], xlim = c(0, 1.5), xlab = "sd.Z", main = "inactive")
 
-hist(dev$sd.dZ[which(dev$behav == "inactive")], xlim = c(0, 2), xlab = "sd.dZ", main = "inactive")
+hist(dev$sd.Z[which(dev$behav == "active")], xlim = c(0, 1.5), xlab = "sd.Z", main = "active")
 dev.off()
 
 

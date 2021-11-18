@@ -414,44 +414,103 @@ save(dev, val, R.Forest, CM.dev, error.rate, min.OOB, var.Accuracy, GINI, sum_im
 load(file = "E:/Myotis_vivesi/17_34_rm1/548_8_RF.Rdata")
 
 
-install.packages("kableExtra")
+observations <- table(val$behav)
+predictions <- table(val$pred)
+
+options(digits = 4)
+Precision <- Precision * 100
+Recall <- Recall * 100
+
+
+CM.val <- rbind(CM.val, observations)
+CM.val <- cbind(CM.val, predictions)
+CM.val <- rbind(CM.val, Precision)
+CM.val <- rbind(CM.val, Recall)
+
+
+write.csv(CM.val, file = "E:/Myotis_vivesi/17_34_rm1/CM_val.csv")
+
+
+
+# plot CM with corresponding precision, recall, accuracy
 library(kableExtra)
 
-# column =  observation, row = model prediction
-CM.val <- as.data.frame(CM.val)
-observations <- as.data.frame(table(val$behav))
-predictions <- as.data.frame(table(val$pred))
+CM.large <- read.csv(file = "E:/Myotis_vivesi/17_34_rm1/CM_val.csv", sep = ";")
 
-precision <- as.data.frame(Precision)
-precision$Precision <- precision$Precision * 100
+CM.large[(is.na(CM.large))] <- ""
 
+names(CM.large)[1] <- "In/Out"
 
+CM.large[1:5,]
 
-rbind(CM.val, precision$Precision)
-
-CM.val[6,] <- predictions$Freq
-CM.val$observed <- observations$Freq
-
+CM.large[1:5,] %>%
+  kbl(caption = "Confusion matrix: observations (columns) x predictions (rows)") %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T)
 
 
-# plot(dev$mean.Roll, dev$max.Roll, col = which(dev$behav == levels(dev$behav)))
-# plot how distributed points(or separated) are e.g. vedba,
 
-# Differences between behaviours #which variables are important to distinguish which behavior
-# table=data.frame(Stx.m=tapply(dev$mean.stX,dev$Behav.Lab,mean),Stx.sd=tapply(dev$mean.stX,dev$Behav.Lab,sd))
-# table$PSD2X.m=tapply(dev$PSD2X,dev$Behav.Lab,mean)
-# table$PSD2X.sd=tapply(dev$PSD2X,dev$Behav.Lab,sd)
-# table$PSD1Z.m=tapply(dev$PSD1Z,dev$Behav.Lab,mean)
-# table$PSD1Z.sd=tapply(dev$PSD1Z,dev$Behav.Lab,sd)
-# table$VeDBA.m=tapply(dev$mean.VeDBAs ,dev$Behav.Lab,mean)
-# table$VeDBA.sd=tapply(dev$mean.VeDBAs,dev$Behav.Lab,sd)
+
+## frequency distribution of most important variables
+
+boxplot(dev$behav, dev$sd.Z, ylab = "sd.Z", names = levels(dev$behav), col = c(2:5))
+
+plot(dev$behav, dev$sd.Z, ylab = "sd.Z", xlab = "", col = c(2:5))
+
+hist(dev$sd.Z, xlim = c(0, 1.5), xlab = "sd.Z", main = "")
+
+
+
+par(mfrow = c(1,2))
+hist(dev$sd.Z[which(dev$behav == "comm")], xlim = c(0, 50), xlab = "sd.Z", main = "inactive")
+
+hist(dev$sd.Z[which(dev$behav == "comm" | dev$behav == "search" | dev$behav == "buzz")], xlim = c(0, 50), xlab = "sd.Z", main = "active")
+
+dev.off()
+
+
+par(mfrow = c(1,2))
+hist(dev$sd.Z[which(dev$behav == "comm")], xlim = c(0, 1.5), xlab = "sd.Z", main = "comm")
+
+hist(dev$sd.Z[which(dev$behav == "search" | dev$behav == "buzz")], xlim = c(0, 1.5), xlab = "sd.Z", main = "forage")
+
+dev.off()
+
+
+getwd()
+setwd("E:/Myotis_vivesi/17_34_rm1")
+
+data <- read.csv("E:/Myotis_vivesi/17_34_rm1/Mviv17_34_behav.csv")
+
+load(file = "E:/Myotis_vivesi/17_34_rm1/548_8_RF.Rdata")
+
 
 library(dunn.test)
 # Kruskal for diff. in median, supports histograms
-kruskal.test(dev$mean.Roll ~ as.factor(dev$behav))
-dunn.test(dev$mean.Roll, g = as.factor(dev$behav), method = "bonferroni")
+kruskal.test(dev$sd.dZ ~ as.factor(dev$behav))
+kruskal.active_inactive <- capture.output(print(kruskal.test(dev$sd.dZ ~ as.factor(dev$behav))))
+writeLines(kruskal.active_inactive, con = "Kruskal.txt")
 
-kruskal.test(dev$mean.VeDBA ~ as.factor(dev$behav))
-dunn.test(dev$mean.VeDBA, g = as.factor(dev$behav), method = "bonferroni")
+# Dunn for correction of sev. tests
+dunn.test(dev$sd.dZ, g = as.factor(dev$behav), method = "bonferroni")
+dunn.active_inactive <- capture.output(print(dunn.test(dev$sd.dZ, g = as.factor(dev$behav), method = "bonferroni")))
+writeLines(dunn.active_inactive, con = "Dunn.txt")
+
+
+# Plot dunn test
+pdf("Significance_plot.pdf")
+
+data_active <- data[which(data$behav == "active"), ]
+data_active$behav <- as.factor(data_active$behav)
+
+par(bty = "l", mar = c(5,5,5,2))
+boxplot(data_active$sd.dZ ~ data_active$behav, ylim = c(0,1.9), ylab = "sd.dZ", xlab = "active")
+lines(c(2,3), c(1.5,1.5))
+lines(c(1,3), c(1.8,1.8))
+#locator() #search,then esc
+text(x = 2.501641, y = 1.619257, "*", cex = 1.7)
+text(x = 1.920028, y = 1.920028, "*", cex = 1.7)
+dev.off()
 
 ```
