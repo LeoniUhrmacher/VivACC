@@ -157,7 +157,6 @@ legend(19.35, 0.0052, c("active","inactive", "OOB", "min.OOB"), lty = rep(1,8), 
 
 R.Forest
 # OOB rates for different mtry:
-# 1   = 0.23%
 # 2   = 0.15%
 # 3   = 0.15%
 # 4   = 0.17%
@@ -391,17 +390,17 @@ CM.large[1:3,] %>%
 
 ## frequency distribution of most important variables
 
-boxplot(dev$behav, dev$sd.Z, ylab = "sd.Z", names = levels(dev$behav), col = c(2:3))
+boxplot(dev$behav, dev$sd.dZ, ylab = "sd.dZ", names = levels(dev$behav), col = c(2:3))
 
-plot(dev$behav, dev$sd.Z, ylab = "sd.Z", xlab = "", col = c(2:3))
+plot(dev$behav, dev$sd.dZ, ylab = "sd.dZ", xlab = "", col = c(2:3))
 
-hist(dev$sd.Z, xlim = c(0, 2), xlab = "sd.Z", main = "inactive vs. active")
+hist(dev$sd.dZ, xlim = c(0, 2), xlab = "sd.dZ", main = "inactive vs. active")
 
 
 par(mfrow = c(1,2))
-hist(dev$sd.Z[which(dev$behav == "inactive")], xlim = c(0, 1.5), xlab = "sd.Z", main = "inactive")
+hist(dev$sd.dZ[which(dev$behav == "inactive")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "inactive")
 
-hist(dev$sd.Z[which(dev$behav == "active")], xlim = c(0, 1.5), xlab = "sd.Z", main = "active")
+hist(dev$sd.dZ[which(dev$behav == "active")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "active")
 dev.off()
 
 
