@@ -337,11 +337,10 @@ plot(dev$behav, dev$range.stX, ylab = "range.stX", xlab = "", col = c(2:3))
 hist(dev$range.stX, xlim = c(0, 0.5), xlab = "range.stX", main = "")
 
 
-
 par(mfrow = c(1,2))
-hist(dev$range.stX[which(dev$behav == "comm")], xlim = c(0, 0.5), xlab = "range.stX", main = "comm")
+hist(dev$mean.stZ[which(dev$behav == "comm")], xlim = c(0, 0.5), xlab = "mean.stZ", main = "comm")
 
-hist(dev$range.stX[which(dev$behav == "forage")], xlim = c(0, 0.5), xlab = "range.stX", main = "forage")
+hist(dev$mean.stZ[which(dev$behav == "forage")], xlim = c(0, 0.5), xlab = "mean.stZ", main = "forage")
 
 dev.off()
 
