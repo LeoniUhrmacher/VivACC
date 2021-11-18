@@ -65,30 +65,6 @@ table(val$behav)
 # train RF
 
 ```{r}
-
-# randomForest(formula, data, ntree = 500, mtry = 2, importance = FALSE)
-# implements Breiman’s random forest algorithm for classification and regression
-# data: an optional data frame containing the variables in the model
-# formula: a data frame or a matrix of predictors, or a formula describing the model to be fitted
-# ntree: Number of trees to grow. This should not be set to too small a number, to ensure that every input row gets predicted at least a few times
-# mtry: Number of variables randomly sampled as candidates at each split. default value for classification: sqrt(p) where p is number of variables
-# importance: Should importance of predictors be assessed?
-
-# output:
-# call: the original call to randomForest
-# type: one of regression, classification, or unsupervised
-# predicted: the predicted values of the input data based on out-of-bag samples.
-# importance: a matrix with nclass + 2 (for classification) columns. For classification, the first nclass columns are the class-specific measures computed as mean descrease in accuracy. The nclass + 1st column is the mean descrease in accuracy over all classes. The last column is the mean decrease in Gini index
-# importanceSD: The “standard errors” of the permutation-based importance measure. For classification, a p by nclass + 1 matrix corresponding to the first nclass + 1 columns of the importance matrix
-# ntree: number of trees grown.
-# mtry: number of predictors sampled for splitting at each node.
-# forest: a list that contains the entire forest
-# err.rate: vector error rates of the prediction on the input data, the i-th element being the (OOB) error rate for all trees up to the i-th.
-# confusion: the confusion matrix of the prediction (based on OOB data).
-# votes: a matrix with one row for each input data point and one column for each class, giving the fraction or number of (OOB) ‘votes’ from the random forest.
-# oob.times: number of times cases are ‘out-of-bag’ (and thus used in computing OOB error estimate)
-
-
 # Random Forest
 library(randomForest)
 
@@ -135,17 +111,7 @@ error.rate$ntree <- row.names(error.rate)
 
 # --> best ntree = 548 = 18% -> 548 (OOB = 0.1800303)
 
-
 CM.dev <- R.Forest$confusion
-
-# plot error rate and mark minimal OBB
-# plot(x, type = "l", main = deparse(substitute(x)))
-# plot the error rates of a randomForest object
-# x: an object of class randomForest.
-# type: type of plot.
-# main: main title of the plot.
-
-plot(R.Forest)
 
 # Check error rates for each behaviour
 colnames(error.rate)
@@ -153,7 +119,6 @@ colnames(error.rate)
 # Create a plot before running the lines
 plot(error.rate$ntree, error.rate[,1], type = "l", ylim = c(0,0.75), ylab = "Error rate", xlab = "Number of trees")
 
-# Part1
 lines(error.rate[,2], col = 1)   #black -> buzz
 lines(error.rate[,3], col = 2)   #red   -> comm 
 lines(error.rate[,4], col = 3)   #green -> roost
@@ -186,58 +151,13 @@ R.Forest
 
 # -> best mtry = 8
 
-
-# tuneRF(x, y, mtryStart, ntreeTry = 50, stepFactor = 2, improve = 0.05, trace = TRUE, plot = TRUE, doBest = FALSE)
-# Starting with the default value, search for the optimal value (with respect to Out-of-Bag error estimate) of mtry
-# x: matrix or data frame of predictor variables
-# y: response vector (factor for classification, numeric for regression)
-# mtryStart: starting value of mtry; default is the same as in randomForest
-# ntreeTry: number of trees used at the tuning step
-# stepFactor: at each iteration, mtry is inflated (or deflated) by this value
-# improve: the (relative) improvement in OOB error must be by this much for the search to continue
-# trace: whether to print the progress of the search
-# plot: whether to plot the OOB error as function of mtry
-# doBest: whether to run a forest using the optimal mtry found
-# output: a matrix whose first column contains the mtry values searched, and the second column the corresponding OOB error.
-
-mtry <- tuneRF(dev[,-1], dev$behav, ntreeTry = 548, stepFactor = 2, improve = 0.05, trace = TRUE, plot = TRUE)
-best.mtry <- mtry[mtry[, 2] == min(mtry[, 2]), 1]
-print(mtry)
-print(best.mtry)
-
-# --> best mtry = 8
-
 ```
 
 # Variable Importance
 
 ```{r}
 
-# varImpPlot(x, sort = TRUE, n.var = min(30, nrow(x$importance)), type = NULL, class = NULL, scale = TRUE, main = deparse(substitute(x)), ...)
-# Dotchart of predictor variable importance
-# x: An object of class randomForest.
-# sort: Should the variables be sorted in decreasing order of importance?
-# n.var: How many variables to show? (Ignored if sort=FALSE.)
-# type, class, scale: arguments to be passed on to importance
-# main: plot title.
-
 varImpPlot(R.Forest, sort = TRUE, main = "Variable Importance", n.var = 20)
-# x: average increase in node purity
-# y: predictor variables
-# MeanDecreaseAccuracy: estimate of the loss in prediction performance when that particular variable is omitted from the training set or: how much removing each variable reduces the accuracy of the model
-# MeanDecreaseGini: GINI is a measure of node impurity. Highest purity means that each node contains only elements of a single class. Assessing the decrease in GINI when that feature is omitted leads to an understanding of how important that feature is to split the data correctly
-
-
-# importance(x, type = NULL, class = NULL, scale = TRUE)
-# importance: extract variable importance measure
-# x: an object of class randomForest.
-# type: either 1 = mean decrease in accuracy or 2 = mean decrease in node impurity.
-# class: for classification problem, which class-specific measure to return.
-# scale: For permutation based measures, should the measures be divided their “standard errors”?
-
-# output: 
-# A matrix of importance measure, one row for each predictor variable
-# The column(s) are different importance measures
 
 
 # Variables ordered in a list
@@ -325,13 +245,6 @@ dotchart(sum_imp$MeanDecreaseGini, labels = sum_imp$Variables, main = "Mean Gini
 # validate how good the model is on the test data (val)
 
 ```{r}
-# predict(object, newdata, type = "response", norm.votes = TRUE)
-# Prediction of test data using random forest
-# object: an object of class randomForest, as that created by the function randomForest
-# newdata: a data frame or matrix containing new data
-# type: one of response, prob. or votes, indicating the type of output: predicted values, matrix of class probabilities, or matrix of vote counts
-# norm.votes Should the vote counts be normalized (i.e., expressed as fractions)?
-# output for type = response: predicted classes (the classes with majority vote)
 
 dev$pred <- predict(R.Forest, dev)
 val$pred <- predict(R.Forest, val)
@@ -345,60 +258,13 @@ for (j in 1:nrow(CM.samp)){
   CM.val[(rownames(CM.samp[j,,drop = F])),] = CM.samp[j,]
 }   
 
-# column =  observation, row = model prediction
-
-# TP: positive samples correctly classified as positive
-# -> buzzes correctly classified as buzzes
-# TP: predicted buzzes, that are actually buzzes -> TP.buzz = 124
-
-# TN: negative samples correctly classified as negative
-# -> not buzzes correctly classified as not buzzes
-# TN: predicted not buzz, that are actually not buzz -> TN.buzz = 15 + 229 = 244
-
-# FN: positive samples incorrectly classified as negative
-# -> buzzes incorrectly classified as not buzzes
-# FN: predicted not buzzes, that are actually buzzes -> FN.buzz =
-
-# FP: negative samples incorrectly classified as positive
-# -> not buzzes incorrectly classified as buzzes
-# FP: predicted buzzes, that are actually not buzzes -> FP.buzz =
-
-CM.val
-#        buzz comm roost search
-# buzz    122   22     1     57
-# comm     15  607     1    141
-# roost     0    2  1595      0
-# search  231  180     3    607
-
-table(val$behav)
-# buzz   comm  roost search 
-#  368    811   1600    805
-
-table(val$pred)
-# buzz   comm  roost search 
-#  202    764   1597   1021
-
-Recall = diag(CM.val) / apply(CM.val, 2, sum)      # correct predictions (TP = 122) / total number of observations (TP + FN = 368) (FN = 15+231 = 246)
-Precision = diag(CM.val) / apply(CM.val, 1, sum)   # correct predictions (TP = 122) / total number of predictions (TP + FP = 202) (FP = 22+1+57 = 80)
-Accuracy = sum(diag(CM.val)) / sum(CM.val)        # total number of correct predictions (TP + TN = 2931) / total number of predictions of all behaviours (TP + TN + FP + FN = 3584) (TN = 607+1595+607 = 2809)
 
 
-# recall = TP / TP + FN 
-# recall: values on the diagonal, correspond to true positives and true negatives (correct predictions) whereas the others correspond to false positives and false negatives
-# recall: how much percent the model recognizes correctly from observed data
-# recall: proportion of data that is correctly classified as positive
-# recall: proportion of true observations for a given behavior that were predicted to belong to that behavior
 
-# precision = TP / TP + FP 
-# precision: how much of the recognized data is correct 
-# precision: proportion of positive classifications that were predicted correctly
-# precision: proportion of predictions for a given behavior that actually belong to that behavior
+Recall = diag(CM.val) / apply(CM.val, 2, sum)
+Precision = diag(CM.val) / apply(CM.val, 1, sum)
+Accuracy = sum(diag(CM.val)) / sum(CM.val)
 
-# accuracy = TP + TN / TP + TN + FP + FN
-# accuracy: overall correct predictions 
-# accuracy: proportion of data points classified correctly overall
-# accuracy: proportion of the observations that are classified correctly
-# AEA: general accuracy
 
 names(Recall) = c("buzz", "comm", "roost", "search")
 plot(Recall ~ Precision, pch = 16, bty = "L", las = 1, ylim = c(0,1), xlim = c(0.4, 1), cex = 1)
@@ -406,6 +272,8 @@ text(Precision, Recall, names(Recall), pos = 2, cex = 0.9)
 
 
 save(dev, val, R.Forest, CM.dev, error.rate, min.OOB, var.Accuracy, GINI, sum_imp, CM.val, Precision, Recall, Accuracy, file = "E:/Myotis_vivesi/17_34_rm1/548_8_RF.Rdata")
+
+
 
 
 # plot CM with corresponding precision, recall, accuracy
@@ -430,8 +298,6 @@ CM.val <- rbind(CM.val, Recall)
 write.csv(CM.val, file = "E:/Myotis_vivesi/17_34_rm1/CM_val.csv")
 
 
-
-# plot CM with corresponding precision, recall, accuracy
 library(kableExtra)
 
 CM.large <- read.csv(file = "E:/Myotis_vivesi/17_34_rm1/CM_val.csv", sep = ";")
@@ -483,6 +349,8 @@ setwd("E:/Myotis_vivesi/17_34_rm1")
 data <- read.csv("E:/Myotis_vivesi/17_34_rm1/Mviv17_34_behav.csv")
 
 load(file = "E:/Myotis_vivesi/17_34_rm1/548_8_RF.Rdata")
+
+
 
 
 library(dunn.test)
