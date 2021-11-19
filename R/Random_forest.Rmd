@@ -319,12 +319,40 @@ CM.large[1:5,] %>%
 
 ## frequency distribution of most important variables
 
-boxplot(dev$behav, dev$sd.dZ, ylab = "sd.dZ", names = levels(dev$behav), col = c(2:5))
+boxplot(dev$sd.dZ, dev$behav, ylab = "sd.dZ", col = c(2:5))
 
-plot(dev$behav, dev$sd.dZ, ylab = "sd.dZ", xlab = "", col = c(2:5))
+plot(dev$sd.dZ, xlim = c(0, 1.5),  ylab = "sd.dZ", xlab = "")
 
-hist(dev$sd.dZ, xlim = c(0, 1.5), xlab = "sd.dZ", main = "")
 
+hist(dev$sd.dZ[which(dev$behav == "buzz")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "")
+
+hist(dev$sd.dZ[which(dev$behav == "comm")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "")
+
+hist(dev$sd.dZ[which(dev$behav == "search")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "")
+
+hist(dev$sd.dZ[which(dev$behav == "roost")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "")
+
+
+require(doBy)
+require(reshape2)
+require(sp)
+require(zoo)
+library(pracma)
+library(ggplot2)
+
+##### plot frequency distribution of sd.dZ for buzz
+d <- density(dev$sd.dZ[which(dev$behav == "buzz")])
+d <- data.frame(x = d$x, y = d$y)
+
+d$y <- d$y / length(dev$sd.dZ[which(dev$behav == "buzz")])
+d$behav <- "buzz"
+
+ggplot(data = d, aes(x, y)) +
+   geom_point() +
+   xlab("sd.dZ") +
+   ylab("relative frequency") +
+   theme(axis.line = element_line(size = 1, colour = "black"), panel.background = element_rect(fill = "white"))
+#####
 
 
 par(mfrow = c(1,2))
