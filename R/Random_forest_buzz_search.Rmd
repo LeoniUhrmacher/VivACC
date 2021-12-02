@@ -168,40 +168,40 @@ R.Forest
 varImpPlot(R.Forest, sort = TRUE, main = "Variable Importance bs", n.var = 20)
 
 # Variables ordered in a list
-GINI <- data.frame(importance(R.Forest, type = 2, scale = F))
-GINI$Variables <- row.names(GINI)
-GINI <- GINI[order(GINI$MeanDecreaseGini, decreasing = TRUE),]
-GINI <- GINI[1:20,]
+GINI.bs <- data.frame(importance(R.Forest, type = 2, scale = F))
+GINI.bs$Variables <- row.names(GINI.bs)
+GINI.bs <- GINI.bs[order(GINI.bs$MeanDecreaseGini, decreasing = TRUE),]
+GINI.bs <- GINI.bs[1:20,]
 
 # 650 x 400
-barplot(GINI$MeanDecreaseGini, names.arg = GINI$Variables, las = 2, bty = "L", ylab = "Mean Gini Decrease bs")
+barplot(GINI.bs$MeanDecreaseGini, names.arg = GINI.bs$Variables, las = 2, bty = "L", ylab = "Mean Gini Decrease bs")
 
 
-GINI <- data.frame(importance(R.Forest, type = 2, scale = F))
-GINI$Variables <- row.names(GINI)
-GINI <- GINI[order(GINI$MeanDecreaseGini, decreasing = FALSE),]
-GINI <- GINI[45:65,]
+GINI.bs <- data.frame(importance(R.Forest, type = 2, scale = F))
+GINI.bs$Variables <- row.names(GINI.bs)
+GINI.bs <- GINI.bs[order(GINI.bs$MeanDecreaseGini, decreasing = FALSE),]
+GINI.bs <- GINI.bs[45:65,]
 
 # 400 x 500
-dotchart(GINI$MeanDecreaseGini, labels = GINI$Variables, main = "Mean Gini Decrease bs")
+dotchart(GINI.bs$MeanDecreaseGini, labels = GINI.bs$Variables, main = "Mean Gini Decrease bs")
 
 
-var.Accuracy <- data.frame(importance(R.Forest, type = 1, scale = T))
-var.Accuracy$Variables <- row.names(var.Accuracy)
-var.Accuracy <- var.Accuracy[order(var.Accuracy$MeanDecreaseAccuracy, decreasing = TRUE),]
-var.Accuracy <- var.Accuracy[1:20,]
+var.Accuracy.bs <- data.frame(importance(R.Forest, type = 1, scale = T))
+var.Accuracy.bs$Variables <- row.names(var.Accuracy.bs)
+var.Accuracy.bs <- var.Accuracy.bs[order(var.Accuracy.bs$MeanDecreaseAccuracy, decreasing = TRUE),]
+var.Accuracy.bs <- var.Accuracy.bs[1:20,]
 
 # 650 x 400
-barplot(var.Accuracy$MeanDecreaseAccuracy, names.arg = var.Accuracy$Variables, las = 2, bty = "L", ylab = "Mean Accuracy Decrease bs")
+barplot(var.Accuracy.bs$MeanDecreaseAccuracy, names.arg = var.Accuracy.bs$Variables, las = 2, bty = "L", ylab = "Mean Accuracy Decrease bs")
 
 
-var.Accuracy <- data.frame(importance(R.Forest, type = 1, scale = T))
-var.Accuracy$Variables <- row.names(var.Accuracy)
-var.Accuracy <- var.Accuracy[order(var.Accuracy$MeanDecreaseAccuracy, decreasing = FALSE),]
-var.Accuracy <- var.Accuracy[45:65,]
+var.Accuracy.bs <- data.frame(importance(R.Forest, type = 1, scale = T))
+var.Accuracy.bs$Variables <- row.names(var.Accuracy.bs)
+var.Accuracy.bs <- var.Accuracy.bs[order(var.Accuracy.bs$MeanDecreaseAccuracy, decreasing = FALSE),]
+var.Accuracy.bs <- var.Accuracy.bs[45:65,]
 
 # 400 x 500
-dotchart(var.Accuracy$MeanDecreaseAccuracy, labels =  var.Accuracy$Variables, main = "Mean Accuracy Decrease bs")
+dotchart(var.Accuracy.bs$MeanDecreaseAccuracy, labels =  var.Accuracy.bs$Variables, main = "Mean Accuracy Decrease bs")
 
 ```
 
@@ -232,7 +232,7 @@ plot(Recall ~ Precision, pch = 16, bty = "L", las = 1, ylim = c(0,1), xlim = c(0
 text(Precision, Recall, names(Recall), pos = 2, cex = 0.9)
 
 
-save(dev, val, R.Forest, CM.dev, error.rate, min.OOB, var.Accuracy, GINI, CM.val, Precision, Recall, Accuracy, file = "E:/Myotis_vivesi/17_34_rm1/buzz_search/RF_bs.Rdata")
+save(dev, val, R.Forest, CM.dev, error.rate, min.OOB, var.Accuracy.bs, GINI.bs, CM.val, Precision, Recall, Accuracy, file = "E:/Myotis_vivesi/17_34_rm1/buzz_search/RF_bs.Rdata")
 
 
 # plot CM with corresponding precision, recall, accuracy

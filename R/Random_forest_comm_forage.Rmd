@@ -16,7 +16,7 @@ op <- options(digits.secs = 3)
 # create training(dev) and test(val) data set
 
 ```{r}
-data <- read.csv("E:/Myotis_vivesi/17_34_rm1/Mviv17_34_acc_behav.csv")
+data <- read.csv("E:/Myotis_vivesi/17_49_rm1/Mviv17_49_acc_behav.csv")
 names(data)
 data <- data[, c(66, 1:65)]
 
@@ -33,10 +33,11 @@ data <- data[-which(data$behav == "roost"),]
 
 table(data$behav)
 
-write.csv(data, file = "E:/Myotis_vivesi/17_34_rm1/comm_forage/Mviv17_34_comm_forage.csv", row.names = FALSE)
+write.csv(data, file = "E:/Myotis_vivesi/17_49_rm1/comm_forage/Mviv17_49_comm_forage.csv", row.names = FALSE)
 
 
-data <- read.csv("E:/Myotis_vivesi/17_34_rm1/comm_forage/Mviv17_34_comm_forage.csv")
+data <- read.csv("E:/Myotis_vivesi/17_49_rm1/comm_forage/Mviv17_49_comm_forage.csv")
+
 
 #### balance behaviours
 comm <- filter(data, behav == "comm")
@@ -72,17 +73,17 @@ table(val$behav)
 # train RF
 
 ```{r}
-# Random Forest
+
 library(randomForest)
 
 # load dev and val 
-load(file = "E:/Myotis_vivesi/17_34_rm1/comm_forage/RF_cf.Rdata")
+load(file = "E:/Myotis_vivesi/17_49_rm1/comm_forage/RF_cf.Rdata")
 
 dev <- dev[,-67]
 val <- val[,-67]
 
 set.seed(222)
-R.Forest <- randomForest(formula = behav ~ ., data = dev, ntree = 803, importance = TRUE)
+R.Forest <- randomForest(formula = behav ~ ., data = dev, ntree = 539, importance = TRUE)
 # we want to predict "behav" (response variable) using each of the remaining columns of data (predictor variables)
 
 ```
@@ -103,26 +104,17 @@ error.rate$ntree <- row.names(error.rate)
 (min.OOB <- error.rate[which.min(error.rate$OOB),])
 
 
-# OOB rates for different ntree and corresponding best ntree value:
-# 500 =  17.78% -> 188 0.1747238
-# 600 =  17.47% -> 594 0.1743785
-# 700 =  17.47% -> 665 0.1726519
-# 800 =  17.27% -> 665 0.1726519
-# 900 =  17.4%  -> 803 0.1723066
-# 1000 = 17.44% -> 803 0.1723066
-# 1100 = 17.54% -> 803 0.1723066
-
-# --> best ntree = 803 = 0.1723066
-
-
 CM.dev <- R.Forest$confusion
 
-# plot error rate and mark minimal OBB
-# plot(x, type = "l", main = deparse(substitute(x)))
-# plot the error rates of a randomForest object
-# x: an object of class randomForest.
-# type: type of plot.
-# main: main title of the plot.
+# OOB rates for different ntree and corresponding best ntree value:
+# 400 =  19.28% -> 335 0.1914
+# 500 =  19.16% -> 429 0.1909
+# 600 =  19.11% -> 539 0.1904
+# 800 =  19.26% -> 539 0.1904
+# 1000 = 19.33% -> 539 0.1904
+
+# --> best ntree = 539 0.1904
+
 
 plot(R.Forest)
 
@@ -130,16 +122,16 @@ plot(R.Forest)
 colnames(error.rate)
 
 # Create a plot before running the lines
-plot(error.rate$ntree, error.rate[,1], type = "l", ylim = c(0,0.4), ylab = "Error rate", xlab = "Number of trees")
+plot(error.rate$ntree, error.rate[,1], type = "l", ylim = c(0,0.5), ylab = "Error rate", xlab = "Number of trees")
 
 # Part1
 lines(error.rate[,2], col = 1)   #black -> comm
 lines(error.rate[,3], col = 2)   #red   -> forage 
 lines(error.rate[,1], col = 3)   #green -> OOB
 
-abline(v = 803, col = "darkgreen")
+abline(v = 539, col = "darkgreen")
 
-legend(631, 0.416, c("comm", "forage", "OOB", "min.OOB"), lty = rep(1,8), lwd = rep(1,8), col = c(1:3, "darkgreen"))
+legend("topright", c("comm", "forage", "OOB", "min.OOB"), lty = rep(1,8), lwd = rep(1,8), col = c(1:3, "darkgreen"))
 
 ```
 
@@ -147,23 +139,22 @@ legend(631, 0.416, c("comm", "forage", "OOB", "min.OOB"), lty = rep(1,8), lwd = 
 
 ```{r}
 # apply similar procedure such that random forest is run 10 times. The optimal number of predictors selected for split is selected for which out of bag error rate stabilizes and reach minimum
+
 set.seed(222)
-R.Forest <- randomForest(formula = behav ~ ., data = dev, ntree = 803, mtry = 8, importance = TRUE)
+R.Forest <- randomForest(formula = behav ~ ., data = dev, ntree = 539, mtry = 8, importance = TRUE)
 
 R.Forest
 # OOB rates for different mtry:
-# 2   = 18.16%
-# 3   = 17.96%
-# 4   = 18.2%
-# 5   = 17.96%
-# 6   = 17.82%
-# 7   = 17.65%
-# 8   = 17.23% (default)
-# 9   = 17.68%
-# 10  = 17.51%
-# 16  = 17.68%
+# 4   = 19.58%
+# 6   = 19.09%
+# 7   = 19.36%
+# 8   = 19.04% (default)
+# 9   = 19.23%
+# 10  = 19.55%
+# 16  = 19.5%
 
 # -> best mtry = 8
+
 
 ```
 
@@ -174,40 +165,40 @@ R.Forest
 varImpPlot(R.Forest, sort = TRUE, main = "Variable Importance cf", n.var = 20)
 
 # Variables ordered in a list
-GINI <- data.frame(importance(R.Forest, type = 2, scale = F))
-GINI$Variables <- row.names(GINI)
-GINI <- GINI[order(GINI$MeanDecreaseGini, decreasing = TRUE),]
-GINI <- GINI[1:20,]
+GINI.cf <- data.frame(importance(R.Forest, type = 2, scale = F))
+GINI.cf$Variables <- row.names(GINI.cf)
+GINI.cf <- GINI.cf[order(GINI.cf$MeanDecreaseGini, decreasing = TRUE),]
+GINI.cf <- GINI.cf[1:20,]
 
 # 650 x 400
-barplot(GINI$MeanDecreaseGini, names.arg = GINI$Variables, las = 2, bty = "L", ylab = "Mean Gini Decrease cf")
+barplot(GINI.cf$MeanDecreaseGini, names.arg = GINI.cf$Variables, las = 2, bty = "L", ylab = "Mean Gini Decrease cf")
 
 
-GINI <- data.frame(importance(R.Forest, type = 2, scale = F))
-GINI$Variables <- row.names(GINI)
-GINI <- GINI[order(GINI$MeanDecreaseGini, decreasing = FALSE),]
-GINI <- GINI[45:65,]
+GINI.cf <- data.frame(importance(R.Forest, type = 2, scale = F))
+GINI.cf$Variables <- row.names(GINI.cf)
+GINI.cf <- GINI.cf[order(GINI.cf$MeanDecreaseGini, decreasing = FALSE),]
+GINI.cf <- GINI.cf[45:65,]
 
 # 400 x 500
-dotchart(GINI$MeanDecreaseGini, labels = GINI$Variables, main = "Mean Gini Decrease cf")
+dotchart(GINI.cf$MeanDecreaseGini, labels = GINI.cf$Variables, main = "Mean Gini Decrease cf")
 
 
-var.Accuracy <- data.frame(importance(R.Forest, type = 1, scale = T))
-var.Accuracy$Variables <- row.names(var.Accuracy)
-var.Accuracy <- var.Accuracy[order(var.Accuracy$MeanDecreaseAccuracy, decreasing = TRUE),]
-var.Accuracy <- var.Accuracy[1:20,]
+var.Accuracy.cf <- data.frame(importance(R.Forest, type = 1, scale = T))
+var.Accuracy.cf$Variables <- row.names(var.Accuracy.cf)
+var.Accuracy.cf <- var.Accuracy.cf[order(var.Accuracy.cf$MeanDecreaseAccuracy, decreasing = TRUE),]
+var.Accuracy.cf <- var.Accuracy.cf[1:20,]
 
 # 650 x 400
-barplot(var.Accuracy$MeanDecreaseAccuracy, names.arg = var.Accuracy$Variables, las = 2, bty = "L", ylab = "Mean Accuracy Decrease cf")
+barplot(var.Accuracy.cf$MeanDecreaseAccuracy, names.arg = var.Accuracy.cf$Variables, las = 2, bty = "L", ylab = "Mean Accuracy Decrease cf")
 
 
-var.Accuracy <- data.frame(importance(R.Forest, type = 1, scale = T))
-var.Accuracy$Variables <- row.names(var.Accuracy)
-var.Accuracy <- var.Accuracy[order(var.Accuracy$MeanDecreaseAccuracy, decreasing = FALSE),]
-var.Accuracy <- var.Accuracy[45:65,]
+var.Accuracy.cf <- data.frame(importance(R.Forest, type = 1, scale = T))
+var.Accuracy.cf$Variables <- row.names(var.Accuracy.cf)
+var.Accuracy.cf <- var.Accuracy.cf[order(var.Accuracy.cf$MeanDecreaseAccuracy, decreasing = FALSE),]
+var.Accuracy.cf <- var.Accuracy.cf[45:65,]
 
 # 400 x 500
-dotchart(var.Accuracy$MeanDecreaseAccuracy, labels =  var.Accuracy$Variables, main = "Mean Accuracy Decrease cf")
+dotchart(var.Accuracy.cf$MeanDecreaseAccuracy, labels =  var.Accuracy.cf$Variables, main = "Mean Accuracy Decrease cf")
 
 ```
 
@@ -239,12 +230,12 @@ plot(Recall ~ Precision, pch = 16, bty = "L", las = 1, ylim = c(0,1), xlim = c(0
 text(Precision, Recall, names(Recall), pos = 2, cex = 0.9)
 
 
-save(dev, val, R.Forest, CM.dev, error.rate, min.OOB, var.Accuracy, GINI, CM.val, Precision, Recall, Accuracy, file = "E:/Myotis_vivesi/17_34_rm1/comm_forage/RF_cf.Rdata")
+save(dev, val, R.Forest, CM.dev, error.rate, min.OOB, var.Accuracy.cf, GINI.cf, CM.val, Precision, Recall, Accuracy, file = "E:/Myotis_vivesi/17_49_rm1/comm_forage/RF_cf.Rdata")
 
 
 # plot CM with corresponding precision, recall, accuracy
 
-load(file = "E:/Myotis_vivesi/17_34_rm1/comm_forage/RF_cf.Rdata")
+load(file = "E:/Myotis_vivesi/17_49_rm1/comm_forage/RF_cf.Rdata")
 
 
 observations <- table(val$behav)
@@ -261,22 +252,23 @@ CM.val <- rbind(CM.val, Precision)
 CM.val <- rbind(CM.val, Recall)
 
 
-write.csv(CM.val, file = "E:/Myotis_vivesi/17_34_rm1/comm_forage/CM_val.csv")
+write.csv(CM.val, file = "E:/Myotis_vivesi/17_49_rm1/comm_forage/CM_val.csv")
 
 
 
 # plot CM with corresponding precision, recall, accuracy
+
 library(kableExtra)
 
-CM.large <- read.csv(file = "E:/Myotis_vivesi/17_34_rm1/comm_forage/CM_val.csv", sep = ";")
+CM.large <- read.csv(file = "E:/Myotis_vivesi/17_49_rm1/comm_forage/CM_val.csv", sep = ";")
 
 CM.large[(is.na(CM.large))] <- ""
 
 names(CM.large)[1] <- "In/Out"
 
-CM.large[1:5,]
+CM.large[1:3,]
 
-CM.large[1:5,] %>%
+CM.large[1:3,] %>%
   kbl(caption = "Confusion matrix: observations (columns) x predictions (rows)") %>%
   kable_classic(full_width = F, html_font = "Cambria") %>%
   column_spec(1, bold = T) %>%
@@ -288,7 +280,7 @@ CM.large[1:5,] %>%
 
 ## frequency distribution of most important variables
 
-load(file = "E:/Myotis_vivesi/17_34_rm1/comm_forage/RF_cf.Rdata")
+load(file = "E:/Myotis_vivesi/17_49_rm1/comm_forage/RF_cf.Rdata")
 
 boxplot(dev$behav, dev$range.stX, ylab = "range.stX", names = levels(dev$behav), col = c(2:3))
 
@@ -327,7 +319,7 @@ ggplot(data = dev, aes(x = range.stX, group = behav, fill = behav)) +
    geom_density(adjust = 1.5, alpha = .4) +
    xlab("range.stX") +
    ylab("frequency") +
-   ggtitle("comm va forage") +
+   ggtitle("comm vs forage") +
    labs(fill = "behaviour") +
    mytheme
 
@@ -336,11 +328,11 @@ ggplot(data = dev, aes(x = range.stX, group = behav, fill = behav)) +
 
 
 getwd()
-setwd("E:/Myotis_vivesi/17_34_rm1/comm_forage")
+setwd("E:/Myotis_vivesi/17_49_rm1/comm_forage")
 
-data <- read.csv("E:/Myotis_vivesi/17_34_rm1/comm_forage/Mviv17_34_comm_forage.csv")
+data <- read.csv("E:/Myotis_vivesi/17_49_rm1/comm_forage/Mviv17_49_comm_forage.csv")
 
-load(file = "E:/Myotis_vivesi/17_34_rm1/comm_forage/RF_cf.Rdata")
+load(file = "E:/Myotis_vivesi/17_49_rm1/comm_forage/RF_cf.Rdata")
 
 
 library(dunn.test)

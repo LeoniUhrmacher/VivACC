@@ -21,11 +21,12 @@ op <- options(digits.secs = 3)
 # corrected ACC values and calculated predictor variables are then saved as a text file
 
 
-acc <- fread("E:/Myotis_vivesi/DDMT/Mviv17_34_rm2_split1.txt")
+acc <- fread("E:/Myotis_vivesi/DDMT/Mviv17_49_split1.txt")
 
 
 #### only for 17_49 with two splits from DDMT
-acc2 <- fread("E:/Myotis_vivesi/DDMT/Mviv17_49_ACC_Call_split2.txt")
+acc1 <- fread("E:/Myotis_vivesi/DDMT/Mviv17_49_split1.txt")
+acc2 <- fread("E:/Myotis_vivesi/DDMT/Mviv17_49_split2.txt")
 
 names(acc1)
 names(acc1)[1] <- "Event"
@@ -69,7 +70,7 @@ AccHz <- median(table(acc$datetime))
 
 options(digits.secs = 3)
 
-write.csv(acc, "E:/Myotis_vivesi/17_34_rm2/Mviv17_34_acc_var.csv", row.names = FALSE)
+write.csv(acc, "E:/Myotis_vivesi/17_49_rm1/Mviv17_49_acc_var.csv", row.names = FALSE)
 
 detach("package:chron", unload = TRUE)
 
@@ -80,8 +81,8 @@ detach("package:chron", unload = TRUE)
 # fix offset file
 
 ```{r}
-buzz_times <- read.csv("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_34/truebuzz/Mviv17_34_truebuzz.csv")
-offset <- fread("E:/Myotis_vivesi/17_34/Mviv17_34_truebuzz_offset.csv")
+buzz_times <- read.csv("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_49/truebuzz/Mviv17_49_truebuzz.csv")
+offset <- fread("E:/Myotis_vivesi/17_49/Mviv17_49_truebuzz_offset.csv")
 
 names(offset)
 names(offset)[1] <- "file"
@@ -90,18 +91,18 @@ names(offset)[3] <- "loud_buzz_end"
 names(offset)[4] <- "start_clip"
 names(offset)[5] <- "segment"
 
-offset$file <- buzz_times$file  
+offset$file <- buzz_times$file
 offset$segment <- buzz_times$segment
 offset$start_clip <- ymd_hms(buzz_times$start_clip)
 
 # replace Nas in loud buzz end with 0
 # offset$loud_buzz_end <- if_else(is.na(offset$loud_buzz_end), 0, 1)
 
-write.csv(offset, file = "E:/Myotis_vivesi/17_34/Mviv17_34_truebuzz_offset1.csv", row.names = FALSE)
+write.csv(offset, file = "E:/Myotis_vivesi/17_49/Mviv17_49_truebuzz_offset1.csv", row.names = FALSE)
 
 
 # read in true_buzz_offset and calculate true_buzz_ends
-true_buzz <- read.csv("E:/Myotis_vivesi/17_34/Mviv17_34_truebuzz_offset1.csv")
+true_buzz <- read.csv("E:/Myotis_vivesi/17_49/Mviv17_49_truebuzz_offset1.csv")
 
 true_buzz$start_clip <- ymd_hms(true_buzz$start_clip)
 
@@ -114,7 +115,7 @@ true_buzz$local_buzz_end <- true_buzz$buzz_end - 7*3600
 
 true_buzz <- true_buzz[order(true_buzz$local_buzz_end),]
 
-write.csv(true_buzz, "E:/Myotis_vivesi/17_34/Mviv17_34_true_buzz_end.csv", row.names = FALSE)
+write.csv(true_buzz, "E:/Myotis_vivesi/17_49/Mviv17_49_true_buzz_end.csv", row.names = FALSE)
 
 #######
 ```
@@ -123,12 +124,12 @@ write.csv(true_buzz, "E:/Myotis_vivesi/17_34/Mviv17_34_true_buzz_end.csv", row.n
 
 ```{r}
 # read in acc data
- acc <- read.csv("E:/Myotis_vivesi/17_34_rm2/Mviv17_34_acc_var.csv")
+ acc <- read.csv("E:/Myotis_vivesi/17_49_rm1/Mviv17_49_acc_var.csv")
 
  acc$datetime <- ymd_hms(acc$datetime)
 
 # read in true_buzz_end file
-true_buzz_end <- read.csv("E:/Myotis_vivesi/17_34/Mviv17_34_true_buzz_end.csv")
+true_buzz_end <- read.csv("E:/Myotis_vivesi/17_49/Mviv17_49_true_buzz_end.csv")
 
 # remove NAs
 true_buzz_end <- na.omit(true_buzz_end)
@@ -156,7 +157,7 @@ for(i in 1:nrow(true_buzz_end)){
 
 ```{r}
 # change 2017 to 2018 for 18_06
-get_time <- function(file, year = 2017, ...){
+get_time1 <- function(file, year = 2017, ...){
     if(nchar(file) > 30){
       split <- strsplit(file, split = "_")
       month <- as.numeric(split[[1]][4])
@@ -194,7 +195,7 @@ get_time <- function(file, year = 2017, ...){
 
 
 # get commuting times from audio files
-comm_files <- list.files("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_34/Commute", 
+comm_files <- list.files("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_49/Commute", 
                          include.dirs = FALSE, pattern = "Mviv*")
 comm_times <- data.frame(filename = comm_files)
 file <- comm_files[1]
@@ -230,7 +231,7 @@ for(i in 1:nrow(comm_times)){
 
 ```{r}
 # get roost times from audio files
-roost_files <- list.files("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_34/Roost", 
+roost_files <- list.files("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_49/Roost", 
                          include.dirs = FALSE, pattern = "Mviv*")
 roost_times <- data.frame(filename = roost_files)
 file <- roost_files[1]
@@ -281,7 +282,7 @@ for(i in 1:nrow(roost_times)){
 
 ```{r}
 # get search times from audio files
-search_files <- list.files("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_34/Search", 
+search_files <- list.files("E:/Myotis_vivesi/data/Audio/Mviv17/Mviv17_49/Search", 
                          include.dirs = FALSE, pattern = "Mviv*")
 search_times <- data.frame(filename = search_files)
 file <- search_files[1]
@@ -313,14 +314,17 @@ for(i in 1:nrow(search_times)){
 
 str(acc)
 
-write.csv(acc, "E:/Myotis_vivesi/17_34_rm2/Mviv17_34_acc_var_idx.csv", row.names = FALSE)
+write.csv(acc, "E:/Myotis_vivesi/17_49_rm1/Mviv17_49_acc_var_idx.csv", row.names = FALSE)
 
 ```
 
 # clean up indexes
 
 ```{r}
-acc <- read.csv("E:/Myotis_vivesi/17_34_rm2/Mviv17_34_acc_var_idx.csv")
+library(pacman)
+p_load(lubridate, tidyverse, dplyr, timetools, data.table)
+
+acc <- read.csv("E:/Myotis_vivesi/17_49_rm1/Mviv17_49_acc_var_idx.csv")
 
 # buzz idx
 buzz_count <- count(acc, buzz_idx)
@@ -423,7 +427,7 @@ table(roost_count_clean$n)
 
 str(acc)
 
-write.csv(acc, "E:/Myotis_vivesi/17_34_rm2/Mviv17_34_acc_var_idx_clean.csv", row.names = FALSE)
+write.csv(acc, "E:/Myotis_vivesi/17_49_rm1/Mviv17_49_acc_var_idx_clean.csv", row.names = FALSE)
 
 ```
 
@@ -432,7 +436,7 @@ write.csv(acc, "E:/Myotis_vivesi/17_34_rm2/Mviv17_34_acc_var_idx_clean.csv", row
 # summarize buzz idx
 
 ```{r}
-acc <- read.csv("E:/Myotis_vivesi/17_34_rm2/Mviv17_34_acc_var_idx_clean.csv")
+acc <- read.csv("E:/Myotis_vivesi/17_49_rm1/Mviv17_49_acc_var_idx_clean.csv")
 
 buzz_acc <- acc %>% group_by(buzz_idx_clean) %>% 
   summarise(count = n(),
@@ -471,7 +475,7 @@ table(buzz_acc$count)
 names(buzz_acc)
 buzz_acc <- buzz_acc[, -c(1,2)]
 
-write.csv(buzz_acc, "E:/Myotis_vivesi/17_34_rm2/Mviv17_34_buzz_acc.csv", row.names = FALSE)
+write.csv(buzz_acc, "E:/Myotis_vivesi/17_49_rm1/Mviv17_49_buzz_acc.csv", row.names = FALSE)
 
 ```
 
@@ -515,7 +519,7 @@ table(comm_acc$count)
 names(comm_acc)
 comm_acc <- comm_acc[, -c(1,2)]
 
-write.csv(comm_acc, "E:/Myotis_vivesi/17_34_rm2/Mviv17_34_comm_acc.csv", row.names = FALSE)
+write.csv(comm_acc, "E:/Myotis_vivesi/17_49_rm1/Mviv17_49_comm_acc.csv", row.names = FALSE)
 
 ```
 
@@ -559,7 +563,7 @@ table(roost_acc$count)
 names(roost_acc)
 roost_acc <- roost_acc[, -c(1,2)]
 
-write.csv(roost_acc, "E:/Myotis_vivesi/17_34_rm2/Mviv17_34_roost_acc.csv", row.names = FALSE)
+write.csv(roost_acc, "E:/Myotis_vivesi/17_49_rm1/Mviv17_49_roost_acc.csv", row.names = FALSE)
 
 ```
 
@@ -603,7 +607,7 @@ table(search_acc$count)
 names(search_acc)
 search_acc <- search_acc[, -c(1,2)]
 
-write.csv(search_acc, "E:/Myotis_vivesi/17_34_rm2/Mviv17_34_search_acc.csv", row.names = FALSE)
+write.csv(search_acc, "E:/Myotis_vivesi/17_49_rm1/Mviv17_49_search_acc.csv", row.names = FALSE)
 
 ```
 
@@ -614,6 +618,6 @@ write.csv(search_acc, "E:/Myotis_vivesi/17_34_rm2/Mviv17_34_search_acc.csv", row
 acc_behav <- rbind(buzz_acc, roost_acc, search_acc, comm_acc)
 names(acc_behav)
 
-write.csv(acc_behav, "E:/Myotis_vivesi/17_34_rm2/Mviv17_34_acc_behav.csv", row.names = FALSE)
+write.csv(acc_behav, "E:/Myotis_vivesi/17_49_rm1/Mviv17_49_acc_behav.csv", row.names = FALSE)
 
 ```
