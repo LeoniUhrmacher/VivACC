@@ -62,7 +62,7 @@ table(val$behav)
 library(randomForest)
 
 # load Rdata
-load(file = "E:/Myotis_vivesi/17_34_rm1/active_inactive/30_8_RF.Rdata")
+load(file = "E:/Myotis_vivesi/17_34_rm1/active_inactive/RF_ai.Rdata")
 
 dev <- dev[,-67]
 val <- val[,-67]
@@ -142,8 +142,8 @@ R.Forest
 # Variable Importance
 
 ```{r}
-
-varImpPlot(R.Forest, sort = TRUE, main = "Variable Importance", n.var = 20)
+# 700 x 500
+varImpPlot(R.Forest, sort = TRUE, main = "Variable Importance ai", n.var = 20)
 
 # Variables ordered in a list
 GINI <- data.frame(importance(R.Forest, type = 2, scale = F))
@@ -151,7 +151,8 @@ GINI$Variables <- row.names(GINI)
 GINI <- GINI[order(GINI$MeanDecreaseGini, decreasing = TRUE),]
 GINI <- GINI[1:20,]
 
-barplot(GINI$MeanDecreaseGini, names.arg = GINI$Variables, las = 2, bty = "L", ylab = "Mean Gini Decrease")
+# 650 x 400
+barplot(GINI$MeanDecreaseGini, names.arg = GINI$Variables, las = 2, bty = "L", ylab = "Mean Gini Decrease ai")
 
 
 GINI <- data.frame(importance(R.Forest, type = 2, scale = F))
@@ -159,7 +160,8 @@ GINI$Variables <- row.names(GINI)
 GINI <- GINI[order(GINI$MeanDecreaseGini, decreasing = FALSE),]
 GINI <- GINI[45:65,]
 
-dotchart(GINI$MeanDecreaseGini, labels = GINI$Variables, main = "Mean Gini Decrease")
+# 400 x 500
+dotchart(GINI$MeanDecreaseGini, labels = GINI$Variables, main = "Mean Gini Decrease ai")
 
 
 var.Accuracy <- data.frame(importance(R.Forest, type = 1, scale = T))
@@ -167,7 +169,8 @@ var.Accuracy$Variables <- row.names(var.Accuracy)
 var.Accuracy <- var.Accuracy[order(var.Accuracy$MeanDecreaseAccuracy, decreasing = TRUE),]
 var.Accuracy <- var.Accuracy[1:20,]
 
-barplot(var.Accuracy$MeanDecreaseAccuracy, names.arg = var.Accuracy$Variables, las = 2, bty = "L", ylab = "Mean Accuracy Decrease")
+# 650 x 400
+barplot(var.Accuracy$MeanDecreaseAccuracy, names.arg = var.Accuracy$Variables, las = 2, bty = "L", ylab = "Mean Accuracy Decrease ai")
 
 
 var.Accuracy <- data.frame(importance(R.Forest, type = 1, scale = T))
@@ -175,7 +178,8 @@ var.Accuracy$Variables <- row.names(var.Accuracy)
 var.Accuracy <- var.Accuracy[order(var.Accuracy$MeanDecreaseAccuracy, decreasing = FALSE),]
 var.Accuracy <- var.Accuracy[45:65,]
 
-dotchart(var.Accuracy$MeanDecreaseAccuracy, labels =  var.Accuracy$Variables, main = "Mean Accuracy Decrease")
+# 400 x 500
+dotchart(var.Accuracy$MeanDecreaseAccuracy, labels =  var.Accuracy$Variables, main = "Mean Accuracy Decrease ai")
 
 ```
 
@@ -202,18 +206,18 @@ Precision = diag(CM.val) / apply(CM.val, 1, sum)
 Accuracy = sum(diag(CM.val)) / sum(CM.val)
 
 
-
+# 650 x 400
 names(Recall) = c("active", "inactive")
-plot(Recall ~ Precision, pch = 16, bty = "L", las = 1, ylim = c(0,1), xlim = c(0.5, 1), cex = 1)
+plot(Recall ~ Precision, pch = 16, bty = "L", las = 1, ylim = c(0,1), xlim = c(0.5, 1), cex = 1, main = "active vs inactive")
 text(Precision, Recall, names(Recall), pos = 2, cex = 0.9)
 
 
-save(dev, val, R.Forest, CM.dev, error.rate, min.OOB, var.Accuracy, GINI, CM.val, Precision, Recall, Accuracy, file = "E:/Myotis_vivesi/17_34_rm1/active_inactive/30_8_RF.Rdata")
+save(dev, val, R.Forest, CM.dev, error.rate, min.OOB, var.Accuracy, GINI, CM.val, Precision, Recall, Accuracy, file = "E:/Myotis_vivesi/17_34_rm1/active_inactive/RF_ai.Rdata")
 
 
 
 
-load(file = "E:/Myotis_vivesi/17_34_rm1/active_inactive/30_8_RF.Rdata")
+load(file = "E:/Myotis_vivesi/17_34_rm1/active_inactive/RF_ai.Rdata")
 
 
 # column =  observation, row = model prediction
@@ -258,7 +262,7 @@ CM.large[1:3,] %>%
 
 ## frequency distribution of most important variables
 
-load(file = "E:/Myotis_vivesi/17_34_rm1/active_inactive/30_8_RF.Rdata")
+load(file = "E:/Myotis_vivesi/17_34_rm1/active_inactive/RF_ai.Rdata")
 
 boxplot(dev$behav, dev$sd.dZ, ylab = "sd.dZ", names = levels(dev$behav), col = c(2:3))
 
@@ -279,11 +283,24 @@ library(pacman)
 
 p_load(ggplot2, hrbrthemes, dplyr, tidyr, viridis)
 
+mytheme <- theme(
+                  plot.title = element_text(face = "bold", family = "Helvetica", size = (15), hjust = 0.5), 
+                  legend.title = element_text(face = "bold", family = "Helvetica"), 
+                  legend.text = element_text(family = "Helvetica"), 
+                  axis.title = element_text(face = "bold", family = "Helvetica", size = (12)),
+                  axis.text = element_text(family = "Helvetica", size = (10)),
+                  axis.line = element_line(size = 1, colour = "black"),
+                  panel.background = element_rect(fill = "white")
+                  )
+                  
+# 650 x 400
 ggplot(data = dev, aes(x = sd.dZ, group = behav, fill = behav)) +
    geom_density(adjust = 1.5, alpha = .4) +
    xlab("sd.dZ") +
    ylab("frequency") +
-   theme(axis.line = element_line(size = 1, colour = "black"), panel.background = element_rect(fill = "white"))
+   ggtitle("active vs inactive") +
+   labs(fill = "behaviour") +
+   mytheme
 
 ####
 
@@ -293,7 +310,7 @@ setwd("E:/Myotis_vivesi/17_34_rm1/active_inactive")
 
 data <- read.csv("E:/Myotis_vivesi/17_34_rm1/active_inactive/Mviv17_34_active_inactive.csv")
 
-load(file = "E:/Myotis_vivesi/17_34_rm1/active_inactive/30_8_RF.Rdata")
+load(file = "E:/Myotis_vivesi/17_34_rm1/active_inactive/RF_ai.Rdata")
 
 
 library(dunn.test)

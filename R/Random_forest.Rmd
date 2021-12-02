@@ -156,16 +156,17 @@ R.Forest
 # Variable Importance
 
 ```{r}
+# 700 x 500
+varImpPlot(R.Forest, sort = TRUE, main = "Variable Importance all", n.var = 20) 
 
-varImpPlot(R.Forest, sort = TRUE, main = "Variable Importance all", n.var = 20) # 700 x 500
 
-
-# Variables ordered in a list
+# Variables ordered in a list 
 GINI <- data.frame(importance(R.Forest, type = 2, scale = F))
 GINI$Variables <- row.names(GINI)
 GINI <- GINI[order(GINI$MeanDecreaseGini, decreasing = TRUE),]
 GINI <- GINI[1:20,]
 
+# 650 x 400
 barplot(GINI$MeanDecreaseGini, names.arg = GINI$Variables, las = 2, bty = "L", ylab = "Mean Gini Decrease all")
 
 
@@ -174,6 +175,7 @@ GINI$Variables <- row.names(GINI)
 GINI <- GINI[order(GINI$MeanDecreaseGini, decreasing = FALSE),]
 GINI <- GINI[45:65,]
 
+# 400 x 500
 dotchart(GINI$MeanDecreaseGini, labels = GINI$Variables, main = "Mean Gini Decrease all")
 
 
@@ -182,14 +184,16 @@ var.Accuracy$Variables <- row.names(var.Accuracy)
 var.Accuracy <- var.Accuracy[order(var.Accuracy$MeanDecreaseAccuracy, decreasing = TRUE),]
 var.Accuracy <- var.Accuracy[1:20,]
 
+# 650 x 400
 barplot(var.Accuracy$MeanDecreaseAccuracy, names.arg = var.Accuracy$Variables, las = 2, bty = "L", ylab = "Mean Accuracy Decrease all")
 
 
 var.Accuracy <- data.frame(importance(R.Forest, type = 1, scale = T))
 var.Accuracy$Variables <- row.names(var.Accuracy)
-var.Accuracy <- var.Accuracy[order(Accuracy$MeanDecreaseAccuracy, decreasing = FALSE),]
+var.Accuracy <- var.Accuracy[order(var.Accuracy$MeanDecreaseAccuracy, decreasing = FALSE),]
 var.Accuracy <- var.Accuracy[45:65,]
 
+# 400 x 500
 dotchart(var.Accuracy$MeanDecreaseAccuracy, labels =  var.Accuracy$Variables, main = "Mean Accuracy Decrease all")
 
 
@@ -218,13 +222,13 @@ Recall = diag(CM.val) / apply(CM.val, 2, sum)
 Precision = diag(CM.val) / apply(CM.val, 1, sum)
 Accuracy = sum(diag(CM.val)) / sum(CM.val)
 
-
+# 650 x 400
 names(Recall) = c("buzz", "comm", "roost", "search")
-plot(Recall ~ Precision, pch = 16, bty = "L", las = 1, ylim = c(0,1), xlim = c(0.4, 1), cex = 1)
+plot(Recall ~ Precision, pch = 16, bty = "L", las = 1, ylim = c(0,1), xlim = c(0.4, 1), cex = 1, main = "all")
 text(Precision, Recall, names(Recall), pos = 2, cex = 0.9)
 
 
-save(dev, val, R.Forest, CM.dev, error.rate, min.OOB, var.Accuracy, GINI, sum_imp, CM.val, Precision, Recall, Accuracy, file = "E:/Myotis_vivesi/17_34_rm1/RF_all.Rdata")
+save(dev, val, R.Forest, CM.dev, error.rate, min.OOB, var.Accuracy, GINI, CM.val, Precision, Recall, Accuracy, file = "E:/Myotis_vivesi/17_34_rm1/RF_all.Rdata")
 
 
 
@@ -289,7 +293,7 @@ hist(dev$sd.dZ[which(dev$behav == "buzz")], xlim = c(0, 1.5), xlab = "sd.dZ", ma
 
 
 
-hist(dev$sd.dZ[which(dev$behav == "roost")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "inactive vs active all", col = "yellow")
+hist(dev$sd.dZ[which(dev$behav == "roost")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "inactive vs active", col = "yellow")
 
 hist(dev$sd.dZ[which(dev$behav == "comm" | dev$behav == "search" | dev$behav == "buzz")], xlim = c(0, 1.5), xlab = "sd.dZ", col = "green", add = TRUE)
 
@@ -307,7 +311,6 @@ p_load(ggplot2, hrbrthemes, dplyr, tidyr, viridis)
 
 # all behaviours
 
-
 mytheme <- theme(
                   plot.title = element_text(face = "bold", family = "Helvetica", size = (15), hjust = 0.5), 
                   legend.title = element_text(face = "bold", family = "Helvetica"), 
@@ -318,7 +321,7 @@ mytheme <- theme(
                   panel.background = element_rect(fill = "white")
                   )
                   
-
+# 650 x 400
 ggplot(data = dev, aes(x = sd.dZ, group = behav, fill = behav)) +
    geom_density(adjust = 1.5, alpha = .4) +
    xlab("sd.dZ") +
@@ -333,7 +336,17 @@ ggplot(data = not_roost, aes(x = sd.dZ, group = behav, fill = behav)) +
    geom_density(adjust = 1.5, alpha = .4) +
    xlab("sd.dZ") +
    ylab("frequency") +
-   theme(axis.line = element_line(size = 1, colour = "black"), panel.background = element_rect(fill = "white"))
+   ggtitle("all") +
+   labs(fill = "behaviour") +
+   mytheme
+
+ggplot(data = not_roost, aes(x = range.stX, group = behav, fill = behav)) +
+   geom_density(adjust = 1.5, alpha = .4) +
+   xlab("range.stX") +
+   ylab("frequency") +
+   ggtitle("all") +
+   labs(fill = "behaviour") +
+   mytheme
 
 # only buzz & search
 buzz_search <- not_roost[-which(not_roost$behav == "comm"),]
@@ -341,8 +354,17 @@ ggplot(data = buzz_search, aes(x = sd.dZ, group = behav, fill = behav)) +
    geom_density(adjust = 1.5, alpha = .4) +
    xlab("sd.dZ") +
    ylab("frequency") +
-   
-   theme(axis.line = element_line(size = 1, colour = "black"), panel.background = element_rect(fill = "white"))
+   ggtitle("all") +
+   labs(fill = "behaviour") +
+   mytheme
+
+ggplot(data = buzz_search, aes(x = max.stY, group = behav, fill = behav)) +
+   geom_density(adjust = 1.5, alpha = .4) +
+   xlab("max.stY") +
+   ylab("frequency") +
+   ggtitle("all") +
+   labs(fill = "behaviour") +
+   mytheme
 
 #####
 
