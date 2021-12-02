@@ -321,54 +321,61 @@ CM.large[1:5,] %>%
 
 boxplot(dev$sd.dZ, dev$behav, ylab = "sd.dZ", col = c(2:5))
 
-plot(dev$sd.dZ, xlim = c(0, 1.5),  ylab = "sd.dZ", xlab = "")
+plot(dev$behav, dev$sd.dZ, xlim = c(0, 5),  ylab = "sd.dZ", xlab = "", col = c(2:5))
 
 
-hist(dev$sd.dZ[which(dev$behav == "buzz")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "")
-
-hist(dev$sd.dZ[which(dev$behav == "comm")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "")
-
-hist(dev$sd.dZ[which(dev$behav == "search")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "")
-
-hist(dev$sd.dZ[which(dev$behav == "roost")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "")
 
 
-require(doBy)
-require(reshape2)
-require(sp)
-require(zoo)
-library(pracma)
-library(ggplot2)
+hist(dev$sd.dZ[which(dev$behav == "roost")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "", col = "yellow")
 
-##### plot frequency distribution of sd.dZ for buzz
-d <- density(dev$sd.dZ[which(dev$behav == "buzz")])
-d <- data.frame(x = d$x, y = d$y)
+hist(dev$sd.dZ[which(dev$behav == "comm")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "", col = "blue", add = TRUE)
 
-d$y <- d$y / length(dev$sd.dZ[which(dev$behav == "buzz")])
-d$behav <- "buzz"
+hist(dev$sd.dZ[which(dev$behav == "search")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "", col = "green", add = TRUE)
 
-ggplot(data = d, aes(x, y)) +
-   geom_point() +
+hist(dev$sd.dZ[which(dev$behav == "buzz")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "", col = "red", add = TRUE)
+
+
+
+hist(dev$sd.dZ[which(dev$behav == "roost")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "inactive vs active", col = "yellow")
+
+hist(dev$sd.dZ[which(dev$behav == "comm" | dev$behav == "search" | dev$behav == "buzz")], xlim = c(0, 1.5), xlab = "sd.dZ", col = "green", add = TRUE)
+
+
+
+hist(dev$sd.dZ[which(dev$behav == "search" | dev$behav == "buzz")], xlim = c(0, 1.5), xlab = "sd.dZ",  main = "comm vs forage", col = "green")
+hist(dev$sd.dZ[which(dev$behav == "comm")], xlim = c(0, 1.5), xlab = "sd.dZ", col = "yellow", add = TRUE)
+
+
+##### plot frequency distribution
+
+library(pacman)
+
+p_load(ggplot2, hrbrthemes, dplyr, tidyr, viridis)
+
+# all behaviours
+ggplot(data = dev, aes(x = sd.dZ, group = behav, fill = behav)) +
+   geom_density(adjust = 1.5, alpha = .4) +
    xlab("sd.dZ") +
-   ylab("relative frequency") +
+   ylab("frequency") +
    theme(axis.line = element_line(size = 1, colour = "black"), panel.background = element_rect(fill = "white"))
+
+# not roost
+not_roost <- dev[-which(dev$behav == "roost"),]
+ggplot(data = not_roost, aes(x = sd.dZ, group = behav, fill = behav)) +
+   geom_density(adjust = 1.5, alpha = .4) +
+   xlab("sd.dZ") +
+   ylab("frequency") +
+   theme(axis.line = element_line(size = 1, colour = "black"), panel.background = element_rect(fill = "white"))
+
+# only buzz & search
+buzz_search <- not_roost[-which(not_roost$behav == "comm"),]
+ggplot(data = buzz_search, aes(x = sd.dZ, group = behav, fill = behav)) +
+   geom_density(adjust = 1.5, alpha = .4) +
+   xlab("sd.dZ") +
+   ylab("frequency") +
+   theme(axis.line = element_line(size = 1, colour = "black"), panel.background = element_rect(fill = "white"))
+
 #####
-
-
-par(mfrow = c(1,2))
-hist(dev$sd.dZ[which(dev$behav == "roost")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "inactive")
-
-hist(dev$sd.dZ[which(dev$behav == "comm" | dev$behav == "search" | dev$behav == "buzz")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "active")
-
-dev.off()
-
-
-par(mfrow = c(1,2))
-hist(dev$sd.dZ[which(dev$behav == "comm")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "comm")
-
-hist(dev$sd.dZ[which(dev$behav == "search" | dev$behav == "buzz")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "forage")
-
-dev.off()
 
 
 getwd()
@@ -377,8 +384,6 @@ setwd("E:/Myotis_vivesi/17_34_rm1")
 data <- read.csv("E:/Myotis_vivesi/17_34_rm1/Mviv17_34_behav.csv")
 
 load(file = "E:/Myotis_vivesi/17_34_rm1/548_8_RF.Rdata")
-
-
 
 
 library(dunn.test)
