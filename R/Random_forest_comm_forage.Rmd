@@ -328,21 +328,41 @@ CM.large[1:5,] %>%
 
 
 
+
 ## frequency distribution of most important variables
+
+load(file = "E:/Myotis_vivesi/17_34_rm1/comm_forage/803_8_RF.Rdata")
 
 boxplot(dev$behav, dev$range.stX, ylab = "range.stX", names = levels(dev$behav), col = c(2:3))
 
-plot(dev$behav, dev$range.stX, ylab = "range.stX", xlab = "", col = c(2:3))
+plot(dev$behav, dev$range.stX, xlim = c(0, 3), ylab = "range.stX", xlab = "", col = c(2:3))
 
 hist(dev$range.stX, xlim = c(0, 0.5), xlab = "range.stX", main = "")
 
 
-par(mfrow = c(1,2))
-hist(dev$mean.stZ[which(dev$behav == "comm")], xlim = c(0, 0.5), xlab = "mean.stZ", main = "comm")
+hist(dev$range.stX[which(dev$behav == "forage")], xlim = c(0, 0.5), xlab = "range.stX", main = "comm vs forage", col = "green")
 
-hist(dev$mean.stZ[which(dev$behav == "forage")], xlim = c(0, 0.5), xlab = "mean.stZ", main = "forage")
+hist(dev$range.stX[which(dev$behav == "comm")], xlim = c(0, 0.5), xlab = "range.stX", col = "yellow", add = TRUE)
 
-dev.off()
+
+
+
+
+
+##### plot frequency distribution
+
+library(pacman)
+
+p_load(ggplot2, hrbrthemes, dplyr, tidyr, viridis)
+
+ggplot(data = dev, aes(x = range.stX, group = behav, fill = behav)) +
+   geom_density(adjust = 1.5, alpha = .4) +
+   xlab("range.stX") +
+   ylab("frequency") +
+   theme(axis.line = element_line(size = 1, colour = "black"), panel.background = element_rect(fill = "white"))
+
+
+
 
 
 getwd()
