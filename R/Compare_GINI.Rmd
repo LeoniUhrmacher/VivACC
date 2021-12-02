@@ -1,0 +1,42 @@
+---
+title: "Plot Comparison"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+
+load(file = "E:/Myotis_vivesi/17_34_rm1/buzz_search/RF_bs.Rdata")
+load(file = "E:/Myotis_vivesi/17_34_rm1/comm_forage/RF_cf.Rdata")
+load(file = "E:/Myotis_vivesi/17_34_rm1/RF_all.Rdata")
+load(file = "E:/Myotis_vivesi/17_34_rm1/active_inactive/RF_ai.Rdata")
+
+rm(list = c("CM.dev", "CM.val", "dev", "error.rate", "min.OOB", "R.Forest", "val"))
+
+GINI.ai <- GINI.ai[order(GINI.ai$MeanDecreaseGini, decreasing = FALSE),]
+GINI.ai <- GINI.ai[60:65,]
+
+GINI.all <- GINI.all[order(GINI.all$MeanDecreaseGini, decreasing = FALSE),]
+GINI.all <- GINI.all[60:65,]
+
+GINI.bs <- GINI.bs[order(GINI.bs$MeanDecreaseGini, decreasing = FALSE),]
+GINI.bs <- GINI.bs[60:65,]
+
+GINI.cf <- GINI.cf[order(GINI.cf$MeanDecreaseGini, decreasing = FALSE),]
+GINI.cf <- GINI.cf[60:65,]
+
+
+
+par(mfrow = c(2,2))
+
+dotchart(GINI.all$MeanDecreaseGini, labels = GINI.all$Variables, main = "Mean Gini Decrease all")
+
+dotchart(GINI.ai$MeanDecreaseGini, labels = GINI.ai$Variables, main = "Mean Gini Decrease ai")
+
+dotchart(GINI.cf$MeanDecreaseGini, labels = GINI.cf$Variables, main = "Mean Gini Decrease cf")
+
+dotchart(GINI.bs$MeanDecreaseGini, labels = GINI.bs$Variables, main = "Mean Gini Decrease bs")
+
+dev.off()
+```
