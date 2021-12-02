@@ -1,0 +1,346 @@
+---
+title: "Random Forest"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+# load libraries
+
+```{r}
+library(pacman)
+p_load(lubridate, tidyverse, dplyr, timetools, data.table)
+op <- options(digits.secs = 3)
+```
+
+# create training(dev) and test(val) data set
+
+```{r}
+data <- read.csv("E:/Myotis_vivesi/17_34_rm1/Mviv17_34_acc_behav.csv")
+names(data)
+data <- data[, c(66, 1:65)]
+
+data <- na.omit(data)
+
+table(data$behav)
+
+
+#### compare buzz vs search)
+data <- data[-which(data$behav == "roost"),]
+data <- data[-which(data$behav == "comm"),]
+
+table(data$behav)
+
+write.csv(data, file = "E:/Myotis_vivesi/17_34_rm1/buzz_search/Mviv17_34_buzz_search.csv", row.names = FALSE)
+
+
+data <- read.csv("E:/Myotis_vivesi/17_34_rm1/buzz_search/Mviv17_34_buzz_search.csv")
+
+
+#### balance behaviours
+comm <- filter(data, behav == "comm")
+comm <- slice_sample(comm, n = 900)
+
+roost <- filter(data, behav == "forage")
+roost <- slice_sample(forage, n = 900)
+
+
+data <- rbind(comm, forage)
+
+table(data$behav)
+#### 
+
+
+data$behav <- as.factor(data$behav)
+
+
+# Development, Validation
+sample.ind <- sample(2, nrow(data), replace = T, prob = c(0.6, 0.4))
+dev <- data[which(sample.ind == 1),] # development sample, 60% 
+val <- data[which(sample.ind == 2),] # validation sample, 40%
+
+# check same distributions
+table(dev$behav) / nrow(dev)
+table(val$behav) / nrow(val)
+
+# check for behaviours to exclude
+table(dev$behav)
+table(val$behav)
+```
+
+# train RF
+
+```{r}
+# Random Forest
+library(randomForest)
+
+# load dev and val 
+load(file = "E:/Myotis_vivesi/17_34_rm1/buzz_search/RF_bs.Rdata")
+
+dev <- dev[,-67]
+val <- val[,-67]
+
+set.seed(222)
+R.Forest <- randomForest(formula = behav ~ ., data = dev, ntree = 1000, importance = TRUE)
+# we want to predict "behav" (response variable) using each of the remaining columns of data (predictor variables)
+
+```
+
+# tune parameters ntree and mtry
+
+# tune ntree
+
+```{r}
+# First set mtry to default (sqrt of total number of all predictors) and search for the optimal ntree value
+# To find best ntree, build RF with different ntree values (100, 200, 300….,1,000). We build 10 RF classifiers for each ntree value, record the OOB error rate and select ntree value with minimum OOB error
+
+R.Forest
+
+# number of trees that minimizes OOB
+error.rate <- as.data.frame(R.Forest$err.rate)
+error.rate$ntree <- row.names(error.rate)
+(min.OOB <- error.rate[which.min(error.rate$OOB),])
+
+
+# OOB rates for different ntree and corresponding best ntree value:
+# 900 =  25.44% -> 819 0.2508711
+# 1000 = 25.49% -> 819 0.2508711
+# 1100 = 25.44% -> 819 0.2508711
+# 1200 = 25.61% -> 819 0.2508711
+
+# --> best ntree = 819 0.2508711
+
+
+CM.dev <- R.Forest$confusion
+
+# plot error rate and mark minimal OBB
+# plot(x, type = "l", main = deparse(substitute(x)))
+# plot the error rates of a randomForest object
+# x: an object of class randomForest.
+# type: type of plot.
+# main: main title of the plot.
+
+plot(R.Forest)
+
+# Check error rates for each behaviour
+colnames(error.rate)
+
+# Create a plot before running the lines
+plot(error.rate$ntree, error.rate[,1], type = "l", ylim = c(0, 0.7), ylab = "Error rate", xlab = "Number of trees")
+
+# Part1
+lines(error.rate[,2], col = 1)   #black -> buzz
+lines(error.rate[,3], col = 2)   #red   -> search 
+lines(error.rate[,1], col = 3)   #green -> OOB
+
+abline(v = 819, col = "darkgreen")
+
+legend(787, 0.73, c("buzz", "search", "OOB", "min.OOB"), lty = rep(1,8), lwd = rep(1,8), col = c(1:3, "darkgreen"))
+
+```
+
+# tune mtry
+
+```{r}
+# apply similar procedure such that random forest is run 10 times. The optimal number of predictors selected for split is selected for which out of bag error rate stabilizes and reach minimum
+set.seed(222)
+R.Forest <- randomForest(formula = behav ~ ., data = dev, ntree = 819, mtry = 8, importance = TRUE)
+
+R.Forest
+# OOB rates for different mtry:
+# 2   = 26.19%
+# 4   = 25.55%
+# 6   = 26.31%
+# 7   = 25.26%
+# 8   = 25.09% (default)
+# 10  = 25.67%
+# 12  = 25.32%
+# 16  = 25.38%
+
+# -> best mtry = 8 25.09%
+
+```
+
+# Variable Importance
+
+```{r}
+
+varImpPlot(R.Forest, sort = TRUE, main = "Variable Importance", n.var = 20)
+
+# Variables ordered in a list
+GINI <- data.frame(importance(R.Forest, type = 2, scale = F))
+GINI$Variables <- row.names(GINI)
+GINI <- GINI[order(GINI$MeanDecreaseGini, decreasing = TRUE),]
+GINI <- GINI[1:20,]
+
+barplot(GINI$MeanDecreaseGini, names.arg = GINI$Variables, las = 2, bty = "L", ylab = "Mean Gini Decrease")
+
+
+GINI <- data.frame(importance(R.Forest, type = 2, scale = F))
+GINI$Variables <- row.names(GINI)
+GINI <- GINI[order(GINI$MeanDecreaseGini, decreasing = FALSE),]
+GINI <- GINI[45:65,]
+
+dotchart(GINI$MeanDecreaseGini, labels = GINI$Variables, main = "Mean Gini Decrease")
+
+
+var.Accuracy <- data.frame(importance(R.Forest, type = 1, scale = T))
+var.Accuracy$Variables <- row.names(var.Accuracy)
+var.Accuracy <- var.Accuracy[order(var.Accuracy$MeanDecreaseAccuracy, decreasing = TRUE),]
+var.Accuracy <- var.Accuracy[1:20,]
+
+barplot(var.Accuracy$MeanDecreaseAccuracy, names.arg = var.Accuracy$Variables, las = 2, bty = "L", ylab = "Mean Accuracy Decrease")
+
+
+var.Accuracy <- data.frame(importance(R.Forest, type = 1, scale = T))
+var.Accuracy$Variables <- row.names(var.Accuracy)
+var.Accuracy <- var.Accuracy[order(var.Accuracy$MeanDecreaseAccuracy, decreasing = FALSE),]
+var.Accuracy <- var.Accuracy[45:65,]
+
+dotchart(var.Accuracy$MeanDecreaseAccuracy, labels =  var.Accuracy$Variables, main = "Mean Accuracy Decrease")
+
+```
+
+# validate how good the model is on the test data (val)
+
+```{r}
+dev$pred <- predict(R.Forest, dev)
+val$pred <- predict(R.Forest, val)
+
+CM.samp = table(val$pred, val$behav) # same as CM.val??
+
+
+CM.val = matrix(data = 0, nrow = ncol(CM.samp), ncol = ncol(CM.samp), dimnames = list(colnames(CM.samp), colnames(CM.samp)))
+
+for (j in 1:nrow(CM.samp)){
+  CM.val[(rownames(CM.samp[j,,drop = F])),] = CM.samp[j,]
+}   
+
+
+
+Recall = diag(CM.val) / apply(CM.val, 2, sum)      
+Precision = diag(CM.val) / apply(CM.val, 1, sum)   
+Accuracy = sum(diag(CM.val)) / sum(CM.val)        
+
+
+names(Recall) = c("buzz", "search")
+plot(Recall ~ Precision, pch = 16, bty = "L", las = 1, ylim = c(0,1), xlim = c(0.4, 1), cex = 1)
+text(Precision, Recall, names(Recall), pos = 2, cex = 0.9)
+
+
+save(dev, val, R.Forest, CM.dev, error.rate, min.OOB, var.Accuracy, GINI, CM.val, Precision, Recall, Accuracy, file = "E:/Myotis_vivesi/17_34_rm1/buzz_search/RF_bs.Rdata")
+
+
+# plot CM with corresponding precision, recall, accuracy
+
+load(file = "E:/Myotis_vivesi/17_34_rm1/buzz_search/RF_bs.Rdata")
+
+
+observations <- table(val$behav)
+predictions <- table(val$pred)
+
+options(digits = 4)
+Precision <- Precision * 100
+Recall <- Recall * 100
+
+
+CM.val <- rbind(CM.val, observations)
+CM.val <- cbind(CM.val, predictions)
+CM.val <- rbind(CM.val, Precision)
+CM.val <- rbind(CM.val, Recall)
+
+
+write.csv(CM.val, file = "E:/Myotis_vivesi/17_34_rm1/buzz_search/CM_val_bs.csv")
+
+
+
+# plot CM with corresponding precision, recall, accuracy
+library(kableExtra)
+
+CM.large <- read.csv(file = "E:/Myotis_vivesi/17_34_rm1/buzz_search/CM_val_bs.csv", sep = ";")
+
+CM.large[(is.na(CM.large))] <- ""
+
+names(CM.large)[1] <- "In/Out"
+
+CM.large[1:3,]
+
+CM.large[1:3,] %>%
+  kbl(caption = "Confusion matrix: observations (columns) x predictions (rows)") %>%
+  kable_classic(full_width = F, html_font = "Cambria") %>%
+  column_spec(1, bold = T) %>%
+  row_spec(0, bold = T)
+
+
+
+
+
+## frequency distribution of most important variables
+
+load(file = "E:/Myotis_vivesi/17_34_rm1/buzz_search/RF_bs.Rdata")
+
+boxplot(dev$behav, dev$max.stY, ylab = "max.stY", names = levels(dev$behav), col = c(2:3))
+
+plot(dev$behav, dev$max.stY, xlim = c(0, 3), ylab = "max.stY", xlab = "", col = c(2:3))
+
+hist(dev$max.stY, xlim = c(0, 0.2), xlab = "max.stY", main = "")
+
+
+hist(dev$max.stY[which(dev$behav == "buzz")], xlim = c(0, 0.5), xlab = "max.stY", main = "buzz vs search", col = "green")
+
+hist(dev$max.stY[which(dev$behav == "search")], xlim = c(0, 0.5), xlab = "max.stY", col = "yellow", add = TRUE)
+
+
+
+##### plot frequency distribution
+
+library(pacman)
+
+p_load(ggplot2, hrbrthemes, dplyr, tidyr, viridis)
+
+ggplot(data = dev, aes(x = max.stY, group = behav, fill = behav)) +
+   geom_density(adjust = 1.5, alpha = .4) +
+   xlab("max.stY") +
+   ylab("frequency") +
+   theme(axis.line = element_line(size = 1, colour = "black"), panel.background = element_rect(fill = "white"))
+
+
+
+
+
+getwd()
+setwd("E:/Myotis_vivesi/17_34_rm1/buzz_search")
+
+data <- read.csv("E:/Myotis_vivesi/17_34_rm1/buzz_search/Mviv17_34_buzz_search.csv")
+
+load(file = "E:/Myotis_vivesi/17_34_rm1/buzz_search/RF_bs.Rdata")
+
+
+library(dunn.test)
+# Kruskal for diff. in median, supports histograms
+kruskal.test(dev$sd.dZ ~ as.factor(dev$behav))
+kruskal.active_inactive <- capture.output(print(kruskal.test(dev$sd.dZ ~ as.factor(dev$behav))))
+writeLines(kruskal.active_inactive, con = "Kruskal.txt")
+
+# Dunn for correction of sev. tests
+dunn.test(dev$sd.dZ, g = as.factor(dev$behav), method = "bonferroni")
+dunn.active_inactive <- capture.output(print(dunn.test(dev$sd.dZ, g = as.factor(dev$behav), method = "bonferroni")))
+writeLines(dunn.active_inactive, con = "Dunn.txt")
+
+
+# Plot dunn test
+pdf("Significance_plot.pdf")
+
+data_active <- data[which(data$behav == "active"), ]
+data_active$behav <- as.factor(data_active$behav)
+
+par(bty = "l", mar = c(5,5,5,2))
+boxplot(data_active$sd.dZ ~ data_active$behav, ylim = c(0,1.9), ylab = "sd.dZ", xlab = "active")
+lines(c(2,3), c(1.5,1.5))
+lines(c(1,3), c(1.8,1.8))
+#locator() #search,then esc
+text(x = 2.501641, y = 1.619257, "*", cex = 1.7)
+text(x = 1.920028, y = 1.920028, "*", cex = 1.7)
+dev.off()
+
+```
