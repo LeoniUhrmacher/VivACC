@@ -69,7 +69,7 @@ table(val$behav)
 library(randomForest)
 
 # load dev and val 
-load(file = "E:/Myotis_vivesi/17_34_rm1/548_8_RF.Rdata")
+load(file = "E:/Myotis_vivesi/17_34_rm1/RF_all.Rdata")
 
 dev <- dev[,-67]
 val <- val[,-67]
@@ -157,7 +157,7 @@ R.Forest
 
 ```{r}
 
-varImpPlot(R.Forest, sort = TRUE, main = "Variable Importance", n.var = 20)
+varImpPlot(R.Forest, sort = TRUE, main = "Variable Importance all", n.var = 20) # 700 x 500
 
 
 # Variables ordered in a list
@@ -166,7 +166,7 @@ GINI$Variables <- row.names(GINI)
 GINI <- GINI[order(GINI$MeanDecreaseGini, decreasing = TRUE),]
 GINI <- GINI[1:20,]
 
-barplot(GINI$MeanDecreaseGini, names.arg = GINI$Variables, las = 2, bty = "L", ylab = "Mean Gini Decrease")
+barplot(GINI$MeanDecreaseGini, names.arg = GINI$Variables, las = 2, bty = "L", ylab = "Mean Gini Decrease all")
 
 
 GINI <- data.frame(importance(R.Forest, type = 2, scale = F))
@@ -174,7 +174,7 @@ GINI$Variables <- row.names(GINI)
 GINI <- GINI[order(GINI$MeanDecreaseGini, decreasing = FALSE),]
 GINI <- GINI[45:65,]
 
-dotchart(GINI$MeanDecreaseGini, labels = GINI$Variables, main = "Mean Gini Decrease")
+dotchart(GINI$MeanDecreaseGini, labels = GINI$Variables, main = "Mean Gini Decrease all")
 
 
 var.Accuracy <- data.frame(importance(R.Forest, type = 1, scale = T))
@@ -182,7 +182,7 @@ var.Accuracy$Variables <- row.names(var.Accuracy)
 var.Accuracy <- var.Accuracy[order(var.Accuracy$MeanDecreaseAccuracy, decreasing = TRUE),]
 var.Accuracy <- var.Accuracy[1:20,]
 
-barplot(var.Accuracy$MeanDecreaseAccuracy, names.arg = var.Accuracy$Variables, las = 2, bty = "L", ylab = "Mean Accuracy Decrease")
+barplot(var.Accuracy$MeanDecreaseAccuracy, names.arg = var.Accuracy$Variables, las = 2, bty = "L", ylab = "Mean Accuracy Decrease all")
 
 
 var.Accuracy <- data.frame(importance(R.Forest, type = 1, scale = T))
@@ -190,55 +190,8 @@ var.Accuracy$Variables <- row.names(var.Accuracy)
 var.Accuracy <- var.Accuracy[order(Accuracy$MeanDecreaseAccuracy, decreasing = FALSE),]
 var.Accuracy <- var.Accuracy[45:65,]
 
-dotchart(var.Accuracy$MeanDecreaseAccuracy, labels =  var.Accuracy$Variables, main = "Mean Accuracy Decrease")
+dotchart(var.Accuracy$MeanDecreaseAccuracy, labels =  var.Accuracy$Variables, main = "Mean Accuracy Decrease all")
 
-
-
-# Group variables by main variables if used the full formula to check which main variable is of main importance
- {
-   var.share <- function(rf.obj, members) {
-     count <- table(rf.obj$forest$bestvar)[-1]
-     names(count) <- names(rf.obj$forest$ncat)
-     share <- count[members] / sum(count[members])
-     return(share)
-   }
-   group.importance <- function(rf.obj, groups) {
-     GINI <- as.matrix(sapply(groups, function(g) {
-       sum(importance(rf.obj, 1)[g, ]*var.share(rf.obj, g))
-     }))
-     colnames(GINI) <- "MeanDecreaseGini"
-     return(GINI)
-   }
-   
-   {groups = list(
-      X = c("mean.X", "max.X", "min.X", "range.X", "sd.X"),
-      Y = c("mean.Y", "max.Y", "min.Y", "range.Y", "sd.Y"),
-      Z = c("mean.Z", "max.Z", "min.Z", "range.Z", "sd.Z"),
-      stX = c("mean.stX", "max.stX", "min.stX", "range.stX", "sd.stX"),
-      stY = c("mean.stY", "max.stY", "min.stY", "range.stY", "sd.stY"),
-      stZ = c("mean.stZ", "max.stZ", "min.stZ", "range.stZ", "sd.stZ"),
-      dX = c("mean.dX", "max.dX", "min.dX", "range.dX", "sd.dX"),
-      dY = c("mean.dY", "max.dY", "min.dY", "range.dY", "sd.dY"),
-      dZ = c("mean.dZ", "max.dZ", "min.dZ", "range.dZ", "sd.dZ"),
-      VeDBA = c("mean.VeDBA", "max.VeDBA", "min.VeDBA", "range.VeDBA", "sd.VeDBA"),
-      VeSBA = c("mean.VeSBA", "max.VeSBA", "min.VeSBA", "range.VeSBA", "sd.VeSBA"),
-      Pitch = c("mean.Pitch", "max.Pitch", "min.Pitch", "range.Pitch", "sd.Pitch"),
-      Roll = c("mean.Roll", "max.Roll", "min.Roll", "range.Roll", "sd.Roll"))
-      }
-   
-   group.importance(R.Forest, groups)
- }
- 
-sum_imp <- as.data.frame(group.importance(R.Forest, groups))
-sum_imp$Variables <- row.names(sum_imp)
-sum_imp <- sum_imp[order(sum_imp$MeanDecreaseGini, decreasing = TRUE),]
-
-barplot(sum_imp$MeanDecreaseGini, names.arg = sum_imp$Variables, las = 2, bty = "L", ylab = "Mean Gini Decrease")
-
-
-sum_imp <- sum_imp[order(sum_imp$MeanDecreaseGini, decreasing = FALSE),]
-
-dotchart(sum_imp$MeanDecreaseGini, labels = sum_imp$Variables, main = "Mean Gini Decrease")
 
 ```
 
@@ -271,14 +224,14 @@ plot(Recall ~ Precision, pch = 16, bty = "L", las = 1, ylim = c(0,1), xlim = c(0
 text(Precision, Recall, names(Recall), pos = 2, cex = 0.9)
 
 
-save(dev, val, R.Forest, CM.dev, error.rate, min.OOB, var.Accuracy, GINI, sum_imp, CM.val, Precision, Recall, Accuracy, file = "E:/Myotis_vivesi/17_34_rm1/548_8_RF.Rdata")
+save(dev, val, R.Forest, CM.dev, error.rate, min.OOB, var.Accuracy, GINI, sum_imp, CM.val, Precision, Recall, Accuracy, file = "E:/Myotis_vivesi/17_34_rm1/RF_all.Rdata")
 
 
 
 
 # plot CM with corresponding precision, recall, accuracy
 
-load(file = "E:/Myotis_vivesi/17_34_rm1/548_8_RF.Rdata")
+load(file = "E:/Myotis_vivesi/17_34_rm1/RF_all.Rdata")
 
 
 observations <- table(val$behav)
@@ -336,13 +289,13 @@ hist(dev$sd.dZ[which(dev$behav == "buzz")], xlim = c(0, 1.5), xlab = "sd.dZ", ma
 
 
 
-hist(dev$sd.dZ[which(dev$behav == "roost")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "inactive vs active", col = "yellow")
+hist(dev$sd.dZ[which(dev$behav == "roost")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "inactive vs active all", col = "yellow")
 
 hist(dev$sd.dZ[which(dev$behav == "comm" | dev$behav == "search" | dev$behav == "buzz")], xlim = c(0, 1.5), xlab = "sd.dZ", col = "green", add = TRUE)
 
 
 
-hist(dev$sd.dZ[which(dev$behav == "search" | dev$behav == "buzz")], xlim = c(0, 1.5), xlab = "sd.dZ",  main = "comm vs forage", col = "green")
+hist(dev$sd.dZ[which(dev$behav == "search" | dev$behav == "buzz")], xlim = c(0, 1.5), xlab = "sd.dZ",  main = "comm vs forage all", col = "green")
 hist(dev$sd.dZ[which(dev$behav == "comm")], xlim = c(0, 1.5), xlab = "sd.dZ", col = "yellow", add = TRUE)
 
 
@@ -353,11 +306,26 @@ library(pacman)
 p_load(ggplot2, hrbrthemes, dplyr, tidyr, viridis)
 
 # all behaviours
+
+
+mytheme <- theme(
+                  plot.title = element_text(face = "bold", family = "Helvetica", size = (15), hjust = 0.5), 
+                  legend.title = element_text(face = "bold", family = "Helvetica"), 
+                  legend.text = element_text(family = "Helvetica"), 
+                  axis.title = element_text(face = "bold", family = "Helvetica", size = (12)),
+                  axis.text = element_text(family = "Helvetica", size = (10)),
+                  axis.line = element_line(size = 1, colour = "black"),
+                  panel.background = element_rect(fill = "white")
+                  )
+                  
+
 ggplot(data = dev, aes(x = sd.dZ, group = behav, fill = behav)) +
    geom_density(adjust = 1.5, alpha = .4) +
    xlab("sd.dZ") +
    ylab("frequency") +
-   theme(axis.line = element_line(size = 1, colour = "black"), panel.background = element_rect(fill = "white"))
+   ggtitle("all") +
+   labs(fill = "behaviour") +
+   mytheme
 
 # not roost
 not_roost <- dev[-which(dev$behav == "roost"),]
@@ -373,6 +341,7 @@ ggplot(data = buzz_search, aes(x = sd.dZ, group = behav, fill = behav)) +
    geom_density(adjust = 1.5, alpha = .4) +
    xlab("sd.dZ") +
    ylab("frequency") +
+   
    theme(axis.line = element_line(size = 1, colour = "black"), panel.background = element_rect(fill = "white"))
 
 #####
@@ -383,7 +352,7 @@ setwd("E:/Myotis_vivesi/17_34_rm1")
 
 data <- read.csv("E:/Myotis_vivesi/17_34_rm1/Mviv17_34_behav.csv")
 
-load(file = "E:/Myotis_vivesi/17_34_rm1/548_8_RF.Rdata")
+load(file = "E:/Myotis_vivesi/17_34_rm1/RF_all.Rdata")
 
 
 library(dunn.test)
