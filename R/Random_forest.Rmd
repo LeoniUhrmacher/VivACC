@@ -9,14 +9,22 @@ editor_options:
 
 ```{r}
 library(pacman)
-p_load(lubridate, tidyverse, dplyr, timetools, data.table)
+p_load(lubridate, tidyverse, dplyr, timetools, data.table, ggplot2, hrbrthemes, tidyr, viridis, randomForest)
 op <- options(digits.secs = 3)
 ```
 
 # create training(dev) and test(val) data set
 
 ```{r}
-data <- read.csv("E:/Myotis_vivesi/17_49_rm1/Mviv17_49_acc_behav.csv")
+Mviv17_34 <- read.csv("E:/Myotis_vivesi/17_34_rm1/Mviv17_34_acc_behav.csv")
+Mviv17_38 <- read.csv("E:/Myotis_vivesi/17_38_rm1/Mviv17_38_acc_behav.csv")
+Mviv17_49 <- read.csv("E:/Myotis_vivesi/17_49_rm1/Mviv17_49_acc_behav.csv")
+Mviv17_60 <- read.csv("E:/Myotis_vivesi/17_60_rm1/Mviv17_60_acc_behav.csv")
+Mviv18_06 <- read.csv("E:/Myotis_vivesi/18_06_rm1/Mviv18_06_acc_behav.csv")
+
+
+data <- Mviv18_06
+
 names(data)
 data <- data[, c(66, 1:65)]
 
@@ -24,58 +32,68 @@ data <- na.omit(data)
 
 table(data$behav)
 
-
-#### balance behaviours
-buzz <- filter(data, behav == "buzz")
-buzz <- slice_sample(buzz, n = 900)
-
-comm <- filter(data, behav == "comm")
-comm <- slice_sample(comm, n = 900)
-
-roost <- filter(data, behav == "roost")
-roost <- slice_sample(roost, n = 900)
-
-search <- filter(data, behav == "search")
-search <- slice_sample(search, n = 900)
-
-
-data <- rbind(buzz, comm, roost, search)
-
-table(data$behav)
-#### 
-
-
-data$behav <- as.factor(data$behav)
-
+# or take 70% of each behaviour from each bat?
+# run model with and without bat without offset correction
 
 # Development, Validation
-sample.ind <- sample(2, nrow(data), replace = T, prob = c(0.6, 0.4))
-dev <- data[which(sample.ind == 1),] # development sample, 60% 
-val <- data[which(sample.ind == 2),] # validation sample, 40%
+sample.ind <- sample(2, nrow(data), replace = T, prob = c(0.7, 0.3))
+dev_18_06 <- data[which(sample.ind == 1),] # development sample, 70% 
+val_18_06 <- data[which(sample.ind == 2),] # validation sample, 30%
+
+Mviv18_06 <- data
+
+table(dev_18_06$behav) / table(data$behav)
+table(val_18_06$behav) / table(data$behav)
+
+
+
+dev <- rbind(dev_17_34, dev_17_38, dev_17_49, dev_17_60, dev_18_06)
+val <- rbind(val_17_34, val_17_38, val_17_49, val_17_60, val_18_06)
 
 # check same distributions
 table(dev$behav) / nrow(dev)
 table(val$behav) / nrow(val)
 
-# check for behaviours to exclude
+
 table(dev$behav)
-table(val$behav)
+
+#### balance behaviours, min buzz = 3438 -> 3400
+buzz <- filter(dev, behav == "buzz")
+buzz <- slice_sample(buzz, n = 3400)
+
+comm <- filter(dev, behav == "comm")
+comm <- slice_sample(comm, n = 3400)
+
+roost <- filter(dev, behav == "roost")
+roost <- slice_sample(roost, n = 3400)
+
+search <- filter(dev, behav == "search")
+search <- slice_sample(search, n = 3400)
+
+dev <- rbind(buzz, comm, roost, search)
+
+table(dev$behav)
+#### 
+
+
+dev$behav <- as.factor(dev$behav)
+
+
+save(dev_17_34, dev_17_38, dev_17_49, dev_17_60, dev_18_06, val_17_34, val_17_38, val_17_49, val_17_60, val_18_06, dev, val, file = "E:/Myotis_vivesi/large_model/all/dev_val_all.Rdata")
+
 ```
 
 # train RF
 
 ```{r}
 
-library(randomForest)
-
 # load dev and val 
-load(file = "E:/Myotis_vivesi/17_49_rm1/RF_all.Rdata")
+load("E:/Myotis_vivesi/large_model/all/RF_all.Rdata")
 
 dev <- dev[,-67]
-val <- val[,-67]
 
 set.seed(222)
-R.Forest <- randomForest(formula = behav ~ ., data = dev, ntree = 346, importance = TRUE)
+R.Forest <- randomForest(formula = behav ~ ., data = dev, ntree = 700, importance = TRUE)
 # we want to predict "behav" (response variable) using each of the remaining columns of data (predictor variables)
 
 ```
@@ -97,13 +115,18 @@ error.rate$ntree <- row.names(error.rate)
 
 
 # OOB rates for different ntree and corresponding best ntree value:
-# 300 =  21.89% -> 103 0.2151987
-# 400 =  21.54% -> 346 0.2147339
-# 600 =  21.8%  -> 346 0.2147339
-# 800 =  21.64% -> 346 0.2147339
-# 1000 = 21.89% -> 346 0.2147339
+# 100 =   25.86% -> 100 0.2586029
+# 200 =   25.19% -> 181 0.2498529
+# 300 =   25.1%  -> 259 0.2494853
+# 400 =   25.01% -> 387 0.2491176
+# 500 =   24.99% -> 481 0.2485294
+# 600 =   24.85% -> 581 0.2478676
+# 700 =   24.74% -> 680 0.2471324
+# 800 =   24.84% -> 735 0.2466912
+# 900 =   24.82% -> 735 0.2466912
+# 1000 =  24.89% -> 735 0.2466912
 
-# --> best ntree = 346 0.2147339
+# --> ntree = 700
 
 CM.dev <- R.Forest$confusion
 
@@ -122,7 +145,7 @@ lines(error.rate[,4], col = 3)   #green -> roost
 lines(error.rate[,5], col = 4)   #blue  -> search
 lines(error.rate[,1], col = 5)   #turquoise -> OOB
 
-abline(v = 346, col = "darkgreen")
+abline(v = 680, col = "darkgreen")
 
 legend("topright", c("buzz","comm","roost","search", "OOB", "min.OOB"), lty = rep(1,8), lwd = rep(1,8), col = c(1:5, "darkgreen"))
 
@@ -133,30 +156,29 @@ legend("topright", c("buzz","comm","roost","search", "OOB", "min.OOB"), lty = re
 ```{r}
 # apply similar procedure such that random forest is run 10 times. The optimal number of predictors selected for split is selected for which out of bag error rate stabilizes and reach minimum
 
+load("E:/Myotis_vivesi/large_model/all/RF_all.Rdata")
+
 set.seed(222)
-R.Forest <- randomForest(formula = behav ~ ., data = dev, ntree = 346, mtry = 6, importance = TRUE)
+R.Forest <- randomForest(formula = behav ~ ., data = dev, ntree = 700, mtry = 8, importance = TRUE)
 
 R.Forest
 # OOB rates for different mtry:
-# 2   = 22.01%
-# 4   = 21.91%
-# 6   = 21.22%
-# 7   = 21.54%
-# 8   = 21.47% (default)
-# 9   = 21.64%
-# 10  = 21.29%
-# 12  = 22.03%
-# 16  = 21.4%
+# 2   = 25.35%
+# 4   = 24.87%
+# 8   = 24.74%
+# 16  = 24.57%
+# 32  = 24.45%
 
-# -> best mtry = 6
+# -> mtry = 8
 
+save(dev, val, CM.dev, R.Forest, file = "E:/Myotis_vivesi/large_model/all/RF_all.Rdata")
 ```
 
 # Variable Importance
 
 ```{r}
 # 700 x 500
-varImpPlot(R.Forest, sort = TRUE, main = "Variable Importance all", n.var = 20) 
+varImpPlot(R.Forest, sort = TRUE, main = "Variable Importance all", n.var = 20)
 
 
 # Variables ordered in a list 
@@ -195,7 +217,6 @@ var.Accuracy.all <- var.Accuracy.all[45:65,]
 # 400 x 500
 dotchart(var.Accuracy.all$MeanDecreaseAccuracy, labels =  var.Accuracy.all$Variables, main = "Mean Accuracy Decrease all")
 
-
 ```
 
 # validate how good the model is on the test data (val)
@@ -225,36 +246,36 @@ plot(Recall ~ Precision, pch = 16, bty = "L", las = 1, ylim = c(0,1), xlim = c(0
 text(Precision, Recall, names(Recall), pos = 2, cex = 0.9)
 
 
-save(dev, val, R.Forest, CM.dev, error.rate, min.OOB, var.Accuracy.all, GINI.all, CM.val, Precision, Recall, Accuracy, file = "E:/Myotis_vivesi/17_49_rm1/RF_all.Rdata")
+save(dev, val, R.Forest, CM.dev, CM.val, Precision, Recall, Accuracy, file = "E:/Myotis_vivesi/large_model/all/RF_all.Rdata")
 
 
 
 
 # plot CM with corresponding precision, recall, accuracy
 
-load(file = "E:/Myotis_vivesi/17_49_rm1/RF_all.Rdata")
-
+load(file = "E:/Myotis_vivesi/large_model/all/RF_all.Rdata")
 
 observations <- table(val$behav)
 predictions <- table(val$pred)
 
-options(digits = 4)
 Precision <- Precision * 100
 Recall <- Recall * 100
 
 
 CM.val <- rbind(CM.val, observations)
 CM.val <- cbind(CM.val, predictions)
+CM.val[5,5] <- sum(observations)
 CM.val <- rbind(CM.val, Precision)
 CM.val <- rbind(CM.val, Recall)
+CM.val[6,5] <- "Accuracy"
+CM.val[7,5] <- Accuracy * 100
 
-
-write.csv(CM.val, file = "E:/Myotis_vivesi/17_49_rm1/CM_val.csv")
+write.csv(CM.val, file = "E:/Myotis_vivesi/large_model/all/CM_val_all.csv")
 
 
 library(kableExtra)
 
-CM.large <- read.csv(file = "E:/Myotis_vivesi/17_49_rm1/CM_val.csv", sep = ";")
+CM.large <- read.csv(file = "E:/Myotis_vivesi/large_model/all/CM_val_all.csv", sep = ";")
 
 CM.large[(is.na(CM.large))] <- ""
 
@@ -273,33 +294,28 @@ CM.large[1:5,] %>%
 
 ## frequency distribution of most important variables
 
-boxplot(dev$sd.dZ, dev$behav, ylab = "sd.dZ", col = c(2:5))
-
-plot(dev$behav, dev$sd.dZ, xlim = c(0, 5),  ylab = "sd.dZ", xlab = "", col = c(2:5))
-
-
-
-hist(dev$sd.dZ[which(dev$behav == "comm")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "", col = "blue")
-
-hist(dev$sd.dZ[which(dev$behav == "search")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "", col = "green", add = TRUE)
-
-hist(dev$sd.dZ[which(dev$behav == "roost")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "", col = "yellow", add = TRUE)
-
-hist(dev$sd.dZ[which(dev$behav == "buzz")], xlim = c(0, 1.5), xlab = "sd.dZ", main = "", col = "red", add = TRUE)
+# 600 x 400
+plot(dev$behav, dev$mean.VeDBA, xlim = c(0, 5),  ylab = "mean.VeDBA", xlab = "", col = c(2:5))
 
 
 
-hist(dev$sd.dZ[which(dev$behav == "comm" | dev$behav == "search" | dev$behav == "buzz")], xlim = c(0, 1.5), xlab = "sd.dZ", col = "green", main = "inactive vs active")
+hist(dev$mean.VeDBA[which(dev$behav == "comm")], xlim = c(0, 1.5), xlab = "mean.VeDBA", main = "", col = "blue")
 
-hist(dev$sd.dZ[which(dev$behav == "roost")], xlim = c(0, 1.5), xlab = "sd.dZ", col = "yellow", add = TRUE)
+hist(dev$mean.VeDBA[which(dev$behav == "search")], xlim = c(0, 1.5), xlab = "mean.VeDBA", main = "", col = "green", add = TRUE)
+
+hist(dev$mean.VeDBA[which(dev$behav == "roost")], xlim = c(0, 1.5), xlab = "mean.VeDBA", main = "", col = "yellow", add = TRUE)
+
+hist(dev$mean.VeDBA[which(dev$behav == "buzz")], xlim = c(0, 1.5), xlab = "mean.VeDBA", main = "", col = "red", add = TRUE)
+
+
+
+hist(dev$mean.VeDBA[which(dev$behav == "comm" | dev$behav == "search" | dev$behav == "buzz")], xlim = c(0, 1.5), xlab = "mean.VeDBA", col = "green", main = "inactive vs active")
+
+hist(dev$mean.VeDBA[which(dev$behav == "roost")], xlim = c(0, 1.5), xlab = "mean.VeDBA", col = "yellow", add = TRUE)
 
 
 
 ##### plot frequency distribution
-
-library(pacman)
-
-p_load(ggplot2, hrbrthemes, dplyr, tidyr, viridis)
 
 # all behaviours
 
@@ -312,11 +328,12 @@ mytheme <- theme(
                   axis.line = element_line(size = 1, colour = "black"),
                   panel.background = element_rect(fill = "white")
                   )
-                  
+
+
 # 650 x 400
-ggplot(data = dev, aes(x = sd.dZ, group = behav, fill = behav)) +
+ggplot(data = dev, aes(x = mean.VeDBA, group = behav, fill = behav)) +
    geom_density(adjust = 1.5, alpha = .4) +
-   xlab("sd.dZ") +
+   xlab("mean.VeDBA") +
    ylab("frequency") +
    ggtitle("all") +
    labs(fill = "behaviour") +
@@ -324,11 +341,11 @@ ggplot(data = dev, aes(x = sd.dZ, group = behav, fill = behav)) +
 
 # not roost
 not_roost <- dev[-which(dev$behav == "roost"),]
-ggplot(data = not_roost, aes(x = sd.dZ, group = behav, fill = behav)) +
+ggplot(data = not_roost, aes(x = mean.VeDBA, group = behav, fill = behav)) +
    geom_density(adjust = 1.5, alpha = .4) +
-   xlab("sd.dZ") +
+   xlab("mean.VeDBA") +
    ylab("frequency") +
-   ggtitle("all") +
+   ggtitle("not_roost") +
    labs(fill = "behaviour") +
    mytheme
 
@@ -336,17 +353,17 @@ ggplot(data = not_roost, aes(x = range.stX, group = behav, fill = behav)) +
    geom_density(adjust = 1.5, alpha = .4) +
    xlab("range.stX") +
    ylab("frequency") +
-   ggtitle("all") +
+   ggtitle("not_roost") +
    labs(fill = "behaviour") +
    mytheme
 
 # only buzz & search
 buzz_search <- not_roost[-which(not_roost$behav == "comm"),]
-ggplot(data = buzz_search, aes(x = sd.dZ, group = behav, fill = behav)) +
+ggplot(data = buzz_search, aes(x = mean.VeDBA, group = behav, fill = behav)) +
    geom_density(adjust = 1.5, alpha = .4) +
-   xlab("sd.dZ") +
+   xlab("mean.VeDBA") +
    ylab("frequency") +
-   ggtitle("all") +
+   ggtitle("buzz_search") +
    labs(fill = "behaviour") +
    mytheme
 
@@ -362,22 +379,22 @@ ggplot(data = buzz_search, aes(x = max.stY, group = behav, fill = behav)) +
 
 
 getwd()
-setwd("E:/Myotis_vivesi/17_49_rm1")
+setwd("E:/Myotis_vivesi")
 
-data <- read.csv("E:/Myotis_vivesi/17_49_rm1/Mviv17_49_behav.csv")
+data <- read.csv("E:/Myotis_vivesi/Mviv17_38_behav.csv")
 
-load(file = "E:/Myotis_vivesi/17_49_rm1/RF_all.Rdata")
+load(file = "E:/Myotis_vivesi/RF_all.Rdata")
 
 
 library(dunn.test)
 # Kruskal for diff. in median, supports histograms
-kruskal.test(dev$sd.dZ ~ as.factor(dev$behav))
-kruskal.active_inactive <- capture.output(print(kruskal.test(dev$sd.dZ ~ as.factor(dev$behav))))
+kruskal.test(dev$mean.VeDBA ~ as.factor(dev$behav))
+kruskal.active_inactive <- capture.output(print(kruskal.test(dev$mean.VeDBA ~ as.factor(dev$behav))))
 writeLines(kruskal.active_inactive, con = "Kruskal.txt")
 
 # Dunn for correction of sev. tests
-dunn.test(dev$sd.dZ, g = as.factor(dev$behav), method = "bonferroni")
-dunn.active_inactive <- capture.output(print(dunn.test(dev$sd.dZ, g = as.factor(dev$behav), method = "bonferroni")))
+dunn.test(dev$mean.VeDBA, g = as.factor(dev$behav), method = "bonferroni")
+dunn.active_inactive <- capture.output(print(dunn.test(dev$mean.VeDBA, g = as.factor(dev$behav), method = "bonferroni")))
 writeLines(dunn.active_inactive, con = "Dunn.txt")
 
 
@@ -388,7 +405,7 @@ data_active <- data[which(data$behav == "active"), ]
 data_active$behav <- as.factor(data_active$behav)
 
 par(bty = "l", mar = c(5,5,5,2))
-boxplot(data_active$sd.dZ ~ data_active$behav, ylim = c(0,1.9), ylab = "sd.dZ", xlab = "active")
+boxplot(data_active$mean.VeDBA ~ data_active$behav, ylim = c(0,1.9), ylab = "mean.VeDBA", xlab = "active")
 lines(c(2,3), c(1.5,1.5))
 lines(c(1,3), c(1.8,1.8))
 #locator() #search,then esc
